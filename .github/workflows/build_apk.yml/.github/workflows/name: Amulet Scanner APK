@@ -1,4 +1,4 @@
-name: Build APK
+name: Amulet Scanner APK
 
 on:
   workflow_dispatch:
