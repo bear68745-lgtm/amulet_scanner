@@ -1,4 +1,4 @@
-name: Amulet Scanner APK
+name: Build APK
 
 on:
   workflow_dispatch:
@@ -14,25 +14,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.0"
+          flutter-version: '3.35.3'
           channel: stable
+          cache: true
 
-      - name: Create Flutter project structure
+      - name: Create fresh Flutter project
         run: |
-          flutter create --platforms=android .
+          flutter create -t app build_app
 
-      - name: Get packages
+      - name: Copy application files
+        run: |
+          rm -rf build_app/lib
+          cp -r lib build_app/lib
+          cp pubspec.yaml build_app/pubspec.yaml
+
+      - name: Get dependencies
+        working-directory: build_app
         run: flutter pub get
 
       - name: Build APK
+        working-directory: build_app
         run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: amulet-scanner-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          
+          path: build_app/build/app/outputs/flutter-apk/app-release.apk
