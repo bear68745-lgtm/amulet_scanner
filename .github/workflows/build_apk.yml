@@ -29,6 +29,30 @@ jobs:
 
       - name: Create fresh Flutter project
         run: |
-          mkdir /tmp/flutter_app
-          flutter create -t app /tmp/flutter_app
-          
+          flutter create -t app build_app
+
+      - name: Copy application files
+        run: |
+          rm -rf build_app/lib
+          cp -r lib build_app/lib
+          cp pubspec.yaml build_app/pubspec.yaml
+
+      - name: Verify files
+        run: |
+          echo "Checking main.dart..."
+          ls -la build_app/lib
+          test -f build_app/lib/main.dart
+
+      - name: Get dependencies
+        working-directory: build_app
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: build_app
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: amulet-scanner-apk
+          path: build_app/build/app/outputs/flutter-apk/app-release.apk
