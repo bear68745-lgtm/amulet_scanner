@@ -1,5 +1,4 @@
 name: Amulet Scanner APK
-
 on:
   workflow_dispatch:
   push:
