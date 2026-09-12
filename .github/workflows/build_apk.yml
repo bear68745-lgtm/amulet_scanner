@@ -30,10 +30,15 @@ jobs:
           echo "lib folder:"
           ls -la lib
 
+      
+      - name: Check main.dart
+        run: |
+          test -f lib/main.dart
+          echo "พบ lib/main.dart แล้ว"
+
       - name: Create Android project files
         run: |
-          flutter create --platforms=android .
-
+          flutter create --platforms=android --project-name amulet_scanner .
       - name: Get dependencies
         run: flutter pub get
 
