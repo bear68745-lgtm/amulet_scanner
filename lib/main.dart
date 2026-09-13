@@ -1,4 +1,4 @@
-import 'package:camera/camera.dart';
+'เครื่องสแกนพระและเหรียญ'rt 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -132,8 +132,7 @@ class _ScanHomePageState extends State<ScanHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'เครื่องสแกนพระและเหรียญ',
+        title: c'ส่องพระ',
         ),
       ),
       body: Stack(
