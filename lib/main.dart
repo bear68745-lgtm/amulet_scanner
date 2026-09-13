@@ -728,7 +728,7 @@ class _DetailPageState extends State<DetailPage> {
           
             
 
-          const SizedBox(height: 20),
+        
 
           SizedBox(
           SizedBox(
