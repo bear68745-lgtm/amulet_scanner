@@ -707,12 +707,21 @@ class _DetailPageState extends State<DetailPage> {
                     : 'มีข้อมูลการสแกน ${widget.item.scans.length} รายการ',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'ระบบสแกนเพิ่มจะเชื่อมต่อในขั้นถัดไป',
-                    ),
+              
+          onTap: () async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ScanPage(
+        item: widget.item,
+        cameras: widget.cameras,
+      ),
+    ),
+  );
+
+  setState(() {});
+},
+        
                   ),
                 );
               },
