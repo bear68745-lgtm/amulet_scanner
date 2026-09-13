@@ -692,7 +692,7 @@ class _DetailPageState extends State<DetailPage> {
 
           const SizedBox(height: 10),
 
-          Card(
+                    Card(
             child: ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text(
@@ -707,29 +707,21 @@ class _DetailPageState extends State<DetailPage> {
                     : 'มีข้อมูลการสแกน ${widget.item.scans.length} รายการ',
               ),
               trailing: const Icon(Icons.chevron_right),
-              
-          onTap: () async {
-  await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ScanPage(
-        item: widget.item,
-        cameras: widget.cameras,
-      ),
-    ),
-  );
-
-  setState(() {});
-},
-        
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ScanPage(
+                      item: widget.item,
+                      cameras: widget.cameras,
+                    ),
                   ),
                 );
+
+                setState(() {});
               },
             ),
           ),
-
-          const SizedBox(height: 20),
-
           SizedBox(
             height: 55,
             child: ElevatedButton.icon(
