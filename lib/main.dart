@@ -729,8 +729,7 @@ class _DetailPageState extends State<DetailPage> {
             
 
         
-
-          SizedBox(
+        
           SizedBox(
             height: 55,
             child: ElevatedButton.icon(
