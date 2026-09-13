@@ -1,5 +1,4 @@
-
-'เครื่องสแกนพระและเหรียญ'rt 'package:camera/camera.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
@@ -22,7 +21,7 @@ class AmuletScannerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Amulet Scanner',
+      title: 'ส่องพระ',
       theme: ThemeData(
         useMaterial3: true,
       ),
@@ -81,8 +80,6 @@ class _ScanHomePageState extends State<ScanHomePage> {
     });
 
     try {
-      // ถ่ายภาพเพื่อใช้ในกระบวนการวิเคราะห์ชั่วคราว
-      // ไม่มีการบันทึกภาพไว้ในแกลเลอรี
       await controller!.takePicture();
 
       if (!mounted) return;
@@ -133,7 +130,8 @@ class _ScanHomePageState extends State<ScanHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: c'ส่องพระ',
+        title: const Text(
+          'ส่องพระ',
         ),
       ),
       body: Stack(
@@ -141,7 +139,6 @@ class _ScanHomePageState extends State<ScanHomePage> {
           Positioned.fill(
             child: CameraPreview(controller!),
           ),
-
           Positioned(
             left: 16,
             right: 16,
@@ -164,9 +161,7 @@ class _ScanHomePageState extends State<ScanHomePage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
