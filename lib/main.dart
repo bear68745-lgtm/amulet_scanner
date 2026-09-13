@@ -831,3 +831,187 @@ class _DetailPageState extends State<DetailPage> {
     Navigator.pop(context);
   }
 }
+// =====================================================
+// หน้าสแกนเพิ่ม
+// =====================================================
+
+class ScanPage extends StatefulWidget {
+  final AmuletData item;
+  final List<CameraDescription> cameras;
+
+  const ScanPage({
+    super.key,
+    required this.item,
+    required this.cameras,
+  });
+
+  @override
+  State<ScanPage> createState() => _ScanPageState();
+}
+
+class _ScanPageState extends State<ScanPage> {
+  CameraController? controller;
+  bool isReady = false;
+  int scanNumber = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    scanNumber = widget.item.scans.length;
+
+    _startCamera();
+  }
+
+  Future<void> _startCamera() async {
+    if (widget.cameras.isEmpty) {
+      return;
+    }
+
+    controller = CameraController(
+      widget.cameras.first,
+      ResolutionPreset.medium,
+      enableAudio: false,
+    );
+
+    try {
+      await controller!.initialize();
+
+      if (!mounted) return;
+
+      setState(() {
+        isReady = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เปิดกล้องไม่ได้: $e'),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _scan() async {
+    scanNumber++;
+
+    final scanName = 'สแกน $scanNumber';
+
+    widget.item.scans.add(scanName);
+
+    final prefs = await SharedPreferences.getInstance();
+
+    final saved = prefs.getStringList('amulet_data') ?? [];
+
+    final items = saved.map((item) {
+      return AmuletData.fromMap(
+        jsonDecode(item),
+      );
+    }).toList();
+
+    final index = items.indexWhere(
+      (element) => element.id == widget.item.id,
+    );
+
+    if (index != -1) {
+      items[index].scans = List<String>.from(
+        widget.item.scans,
+      );
+
+      final newData = items.map((item) {
+        return jsonEncode(item.toMap());
+      }).toList();
+
+      await prefs.setStringList(
+        'amulet_data',
+        newData,
+      );
+    }
+
+    if (!mounted) return;
+
+    setState(() {});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$scanName บันทึกข้อมูลเรียบร้อย',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'สแกนเพิ่ม • องค์จริง ${widget.item.realItemNumber}',
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              color: Colors.black,
+              child: isReady && controller != null
+                  ? CameraPreview(controller!)
+                  : const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text(
+                  'จำนวนรอบที่สแกน: $scanNumber',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                const Text(
+                  'การสแกนในขั้นนี้ยังไม่บันทึกภาพ',
+                  textAlign: TextAlign.center,
+                ),
+
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton.icon(
+                    onPressed: isReady ? _scan : null,
+                    icon: const Icon(
+                      Icons.center_focus_strong,
+                    ),
+                    label: Text(
+                      'บันทึกการสแกน ${scanNumber + 1}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
