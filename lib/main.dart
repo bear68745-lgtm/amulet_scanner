@@ -722,6 +722,11 @@ class _DetailPageState extends State<DetailPage> {
               },
             ),
           ),
+                    ),
+
+          const SizedBox(height: 20),
+
+          SizedBox(
           SizedBox(
             height: 55,
             child: ElevatedButton.icon(
