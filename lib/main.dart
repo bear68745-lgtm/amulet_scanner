@@ -537,19 +537,288 @@ class _SavedListPageState extends State<SavedListPage> {
                     trailing: const Icon(
                       Icons.chevron_right,
                     ),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'หน้าแก้ไขและสแกนเพิ่ม จะเชื่อมต่อในขั้นต่อไป',
-                          ),
-                        ),
-                      );
-                    },
+                    
+                    onTap: () async {
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => DetailPage(
+        item: item,
+        cameras: widget.cameras,
+      ),
+    ),
+  );
+
+  _loadData();
+},
                   ),
                 );
               },
             ),
     );
+  }
+}
+// =====================================================
+// หน้ารายละเอียดองค์จริง
+// =====================================================
+
+class DetailPage extends StatefulWidget {
+  final AmuletData item;
+  final List<CameraDescription> cameras;
+
+  const DetailPage({
+    super.key,
+    required this.item,
+    required this.cameras,
+  });
+
+  @override
+  State<DetailPage> createState() => _DetailPageState();
+}
+
+class _DetailPageState extends State<DetailPage> {
+  late TextEditingController nameController;
+  late TextEditingController modelController;
+  late TextEditingController typeController;
+  late TextEditingController templeController;
+  late TextEditingController provinceController;
+  late TextEditingController yearController;
+  late TextEditingController materialController;
+  late TextEditingController sizeController;
+  late TextEditingController frontController;
+  late TextEditingController sideController;
+  late TextEditingController backController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final item = widget.item;
+
+    nameController = TextEditingController(text: item.name);
+    modelController = TextEditingController(text: item.model);
+    typeController = TextEditingController(text: item.type);
+    templeController = TextEditingController(text: item.temple);
+    provinceController = TextEditingController(text: item.province);
+    yearController = TextEditingController(text: item.year);
+    materialController = TextEditingController(text: item.material);
+    sizeController = TextEditingController(text: item.size);
+    frontController = TextEditingController(text: item.frontDetail);
+    sideController = TextEditingController(text: item.sideDetail);
+    backController = TextEditingController(text: item.backDetail);
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    modelController.dispose();
+    typeController.dispose();
+    templeController.dispose();
+    provinceController.dispose();
+    yearController.dispose();
+    materialController.dispose();
+    sizeController.dispose();
+    frontController.dispose();
+    sideController.dispose();
+    backController.dispose();
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'องค์จริง ${widget.item.realItemNumber}',
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'องค์จริงลำดับที่ ${widget.item.realItemNumber}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          _field('ชื่อพระ / เหรียญ', nameController),
+          _field('รุ่น', modelController),
+          _field('พิมพ์', typeController),
+          _field('วัด / สำนัก', templeController),
+          _field('จังหวัด', provinceController),
+          _field('ปีสร้าง', yearController),
+          _field('เนื้อ', materialController),
+          _field('ขนาด', sizeController),
+
+          const SizedBox(height: 8),
+
+          const Text(
+            'รายละเอียด',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          _field(
+            'รายละเอียดด้านหน้า',
+            frontController,
+            maxLines: 4,
+          ),
+
+          _field(
+            'รายละเอียดด้านข้าง',
+            sideController,
+            maxLines: 4,
+          ),
+
+          _field(
+            'รายละเอียดด้านหลัง',
+            backController,
+            maxLines: 4,
+          ),
+
+          const SizedBox(height: 10),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text(
+                'สแกนเพิ่ม',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                widget.item.scans.isEmpty
+                    ? 'ยังไม่มีข้อมูลการสแกน'
+                    : 'มีข้อมูลการสแกน ${widget.item.scans.length} รายการ',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'ระบบสแกนเพิ่มจะเชื่อมต่อในขั้นถัดไป',
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          SizedBox(
+            height: 55,
+            child: ElevatedButton.icon(
+              onPressed: _saveChanges,
+              icon: const Icon(Icons.save),
+              label: const Text(
+                'บันทึกการแก้ไข',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveChanges() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final saved = prefs.getStringList('amulet_data') ?? [];
+
+    final items = saved.map((item) {
+      return AmuletData.fromMap(
+        jsonDecode(item),
+      );
+    }).toList();
+
+    final index = items.indexWhere(
+      (element) => element.id == widget.item.id,
+    );
+
+    if (index == -1) {
+      return;
+    }
+
+    final oldItem = items[index];
+
+    items[index] = AmuletData(
+      id: oldItem.id,
+
+      // สำคัญ:
+      // เลของค์จริงเดิมจะไม่เปลี่ยน
+      realItemNumber: oldItem.realItemNumber,
+
+      name: nameController.text,
+      model: modelController.text,
+      type: typeController.text,
+      temple: templeController.text,
+      province: provinceController.text,
+      year: yearController.text,
+      material: materialController.text,
+      size: sizeController.text,
+
+      frontDetail: frontController.text,
+      sideDetail: sideController.text,
+      backDetail: backController.text,
+
+      // เก็บข้อมูลการสแกนเดิมไว้
+      scans: oldItem.scans,
+    );
+
+    final newData = items.map((item) {
+      return jsonEncode(item.toMap());
+    }).toList();
+
+    await prefs.setStringList(
+      'amulet_data',
+      newData,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'บันทึกการแก้ไขเรียบร้อยแล้ว',
+        ),
+      ),
+    );
+
+    Navigator.pop(context);
   }
 }
