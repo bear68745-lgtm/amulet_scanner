@@ -692,7 +692,7 @@ class _DetailPageState extends State<DetailPage> {
 
           const SizedBox(height: 10),
 
-                    Card(
+                      Card(
             child: ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text(
@@ -722,7 +722,11 @@ class _DetailPageState extends State<DetailPage> {
               },
             ),
           ),
-                    ),
+
+          const SizedBox(height: 20),        
+          
+          
+            
 
           const SizedBox(height: 20),
 
