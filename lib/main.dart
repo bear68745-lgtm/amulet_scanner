@@ -352,8 +352,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
   final nameController = TextEditingController();
   final modelController = TextEditingController();
   final typeController = TextEditingController();
-  final templeController = TextEditingController(text: item.temple);
-  final provinceController = TextEditingController(text: item.province);
+  
   final yearController = TextEditingController();
   final materialController = TextEditingController();
   final sizeController = TextEditingController();
@@ -656,7 +655,8 @@ class _DetailPageState extends State<DetailPage> {
     nameController = TextEditingController(text: item.name);
     modelController = TextEditingController(text: item.model);
     typeController = TextEditingController(text: item.type);
-    templeController = TextEditingController(text: item.templfinal   provinceController = TextEditingController(text: item.province);
+    templeController = TextEditingController(text: item.temple);
+    provinceController = TextEditingController(text: item.province);
     yearController = TextEditingController(text: item.year);
     materialController = TextEditingController(text: item.material);
     sizeController = TextEditingController(text: item.size);
@@ -665,8 +665,7 @@ class _DetailPageState extends State<DetailPage> {
     backController = TextEditingController(text: item.backDetail);
   }
 
-  @override
-  void dispose() {
+  @overrideprovinceController{
     nameController.dispose();
     modelController.dispose();
     typeController.dispose();
