@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:image_picker/image_picker.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -831,6 +831,7 @@ class _DetailPageState extends State<DetailPage> {
     Navigator.pop(context);
   }
 }
+
 // =====================================================
 // หน้าสแกนเพิ่ม
 // =====================================================
@@ -899,10 +900,10 @@ class _ScanPageState extends State<ScanPage> {
     super.dispose();
   }
 
-  Future<void> _scan() async {
+  Future<void> _saveScan(String method) async {
     scanNumber++;
 
-    final scanName = 'สแกน $scanNumber';
+    final scanName = 'สแกน $scanNumber • $method';
 
     widget.item.scans.add(scanName);
 
@@ -942,8 +943,60 @@ class _ScanPageState extends State<ScanPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '$scanName บันทึกข้อมูลเรียบร้อย',
+          '$scanName บันทึกเรียบร้อย',
         ),
+      ),
+    );
+  }
+
+  Future<void> _pickFromPhone() async {
+    final picker = ImagePicker();
+
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (image == null) {
+      return;
+    }
+
+    // ใช้ภาพเพื่อการสแกนชั่วคราวเท่านั้น
+    // ไม่บันทึกภาพเข้า amulet_data
+    await _saveScan('จากหน้าจอ/ภาพในโทรศัพท์');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'รับข้อมูลจากภาพแล้ว • ไม่มีการบันทึกภาพพระ',
+        ),
+      ),
+    );
+  }
+
+  Widget _scanButton({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+  }) {
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          icon,
+          size: 32,
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+          ),
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
@@ -956,46 +1009,166 @@ class _ScanPageState extends State<ScanPage> {
           'สแกนเพิ่ม • องค์จริง ${widget.item.realItemNumber}',
         ),
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              color: Colors.black,
-              child: isReady && controller != null
-                  ? CameraPreview(controller!)
-                  : const Center(
-                      child: CircularProgressIndicator(),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    'องค์จริงลำดับที่ ${widget.item.realItemNumber}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'จำนวนรอบที่สแกน: $scanNumber',
+                    style: const TextStyle(
+                      fontSize: 17,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Text(
-                  'จำนวนรอบที่สแกน: $scanNumber',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+          const SizedBox(height: 12),
+
+          const Text(
+            'เลือกวิธีสแกน',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          _scanButton(
+            icon: Icons.camera_alt,
+            title: 'สแกนองค์จริง',
+            subtitle: 'ใช้กล้องส่องพระหรือเหรียญที่อยู่ตรงหน้า',
+            onTap: isReady
+                ? () {
+                    _showCamera();
+                  }
+                : null,
+          ),
+
+          _scanButton(
+            icon: Icons.phone_android,
+            title: 'สแกนผ่านหน้าจอเครื่องอื่น',
+            subtitle: 'เปิดภาพพระบนโทรศัพท์อีกเครื่อง แล้วใช้กล้องสแกน',
+            onTap: isReady
+                ? () {
+                    _showCamera(
+                      title: 'สแกนผ่านหน้าจอเครื่องอื่น',
+                    );
+                  }
+                : null,
+          ),
+
+          _scanButton(
+            icon: Icons.photo_library,
+            title: 'สแกนจากหน้าจอ/ภาพในโทรศัพท์นี้',
+            subtitle: 'เลือกภาพจากโทรศัพท์เพื่อใช้วิเคราะห์ชั่วคราว',
+            onTap: _pickFromPhone,
+          ),
+
+          const SizedBox(height: 16),
+
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'หมายเหตุ: ระบบจะเก็บเฉพาะข้อมูลการสแกน '
+                'และไม่บันทึกรูปพระเข้าในรายการข้อมูล',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          if (widget.item.scans.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ประวัติการสแกน',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...widget.item.scans.map(
+                      (scan) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4,
+                        ),
+                        child: Text('• $scan'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showCamera({
+    String title = 'สแกนองค์จริง',
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.85,
+          child: Column(
+            children: [
+              AppBar(
+                automaticallyImplyLeading: false,
+                title: Text(title),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
                   ),
-                ),
+                ],
+              ),
 
-                const SizedBox(height: 8),
+              Expanded(
+                child: controller != null && isReady
+                    ? CameraPreview(controller!)
+                    : const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+              ),
 
-                const Text(
-                  'การสแกนในขั้นนี้ยังไม่บันทึกภาพ',
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 12),
-
-                SizedBox(
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton.icon(
-                    onPressed: isReady ? _scan : null,
+                    onPressed: () async {
+                      Navigator.pop(context);
+
+                      await _saveScan(title);
+                    },
                     icon: const Icon(
                       Icons.center_focus_strong,
                     ),
@@ -1007,11 +1180,14 @@ class _ScanPageState extends State<ScanPage> {
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
+
+
+
