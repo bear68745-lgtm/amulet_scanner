@@ -1634,16 +1634,13 @@ class ScanPage extends StatefulWidget {
   });
 
   @override
-  State<ScanPage> createState() =>
-      _ScanPageState();
+  State<ScanPage> createState() => _ScanPageState();
 }
 
-class _ScanPageState
-    extends State<ScanPage> {
+class _ScanPageState extends State<ScanPage> {
   CameraController? cameraController;
 
-  final ImagePicker picker =
-      ImagePicker();
+  final ImagePicker picker = ImagePicker();
 
   final List<String> defaultAreas = [
     'ด้านหน้า',
@@ -1660,15 +1657,23 @@ class _ScanPageState
   bool showHistory = true;
   bool autoNextArea = true;
 
+  bool scanning = false;
+  bool cameraReady = false;
+
+  int temporaryFrameCount = 0;
+
   @override
   void initState() {
     super.initState();
     _loadSettings();
   }
 
+  // =====================================================
+  // LOAD SETTINGS
+  // =====================================================
+
   Future<void> _loadSettings() async {
-    final prefs =
-        await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
 
     if (!mounted) return;
 
@@ -1693,115 +1698,451 @@ class _ScanPageState
     });
   }
 
-  Future<void> _startCamera() async {
+  // =====================================================
+  // CAMERA
+  // =====================================================
+
+  Future<void> _openCameraScanner() async {
     if (widget.cameras.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'ไม่พบกล้องในเครื่อง',
-          ),
-        ),
-      );
+      _showMessage('ไม่พบกล้องในเครื่อง');
       return;
     }
 
-    cameraController = CameraController(
-      widget.cameras.first,
-      ResolutionPreset.medium,
-      enableAudio: false,
-    );
+    try {
+      final camera = widget.cameras.firstWhere(
+        (camera) =>
+            camera.lensDirection ==
+            CameraLensDirection.back,
+        orElse: () => widget.cameras.first,
+      );
 
-    await cameraController!.initialize();
+      final controller = CameraController(
+        camera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
 
-    if (!mounted) return;
+      await controller.initialize();
 
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children: [
-                Text(
-                  selectedArea,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight:
-                        FontWeight.bold,
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+
+      cameraController = controller;
+
+      setState(() {
+        cameraReady = true;
+        scanning = false;
+        temporaryFrameCount = 0;
+      });
+
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (
+              context,
+              setSheetState,
+            ) {
+              return SafeArea(
+                child: Container(
+                  height:
+                      MediaQuery.of(context)
+                          .size
+                          .height *
+                          0.90,
+                  padding:
+                      const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                            ),
+                            onPressed: scanning
+                                ? null
+                                : () {
+                                    Navigator.pop(
+                                      sheetContext,
+                                    );
+                                  },
+                          ),
+                          Expanded(
+                            child: Text(
+                              'สแกน$selectedArea',
+                              textAlign:
+                                  TextAlign.center,
+                              style:
+                                  const TextStyle(
+                                fontSize: 20,
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(
+                            width: 48,
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Container(
+                        width: double.infinity,
+                        padding:
+                            const EdgeInsets.all(12),
+                        decoration:
+                            BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(
+                            12,
+                          ),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                        ),
+                        child: Text(
+                          scanning
+                              ? 'กำลังรับข้อมูลจากกล้อง...'
+                              : 'จัดองค์พระ/เหรียญให้อยู่ในกรอบ แล้วกดเริ่มสแกน',
+                          textAlign:
+                              TextAlign.center,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Expanded(
+                        child: cameraController !=
+                                    null &&
+                                cameraController!
+                                    .value
+                                    .isInitialized
+                            ? ClipRRect(
+                                borderRadius:
+                                    BorderRadius.circular(
+                                  16,
+                                ),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    CameraPreview(
+                                      cameraController!,
+                                    ),
+
+                                    Center(
+                                      child:
+                                          IgnorePointer(
+                                        child:
+                                            Container(
+                                          width: 260,
+                                          height: 330,
+                                          decoration:
+                                              BoxDecoration(
+                                            border:
+                                                Border.all(
+                                              width: 2,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    if (scanning)
+                                      Positioned(
+                                        top: 12,
+                                        left: 12,
+                                        right: 12,
+                                        child:
+                                            Container(
+                                          padding:
+                                              const EdgeInsets
+                                                  .all(
+                                            10,
+                                          ),
+                                          decoration:
+                                              BoxDecoration(
+                                            color: Colors
+                                                .black
+                                                .withValues(
+                                              alpha:
+                                                  0.65,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius
+                                                    .circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'กำลังสแกน • '
+                                            '$temporaryFrameCount '
+                                            'ช่วงข้อมูล',
+                                            textAlign:
+                                                TextAlign
+                                                    .center,
+                                            style:
+                                                const TextStyle(
+                                              color:
+                                                  Colors
+                                                      .white,
+                                              fontWeight:
+                                                  FontWeight
+                                                      .bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              )
+                            : const Center(
+                                child:
+                                    CircularProgressIndicator(),
+                              ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      Text(
+                        'ข้อมูลภาพจะใช้ชั่วคราวในหน่วยความจำ '
+                        'และจะไม่บันทึกไฟล์รูปภาพ',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      if (!scanning)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child:
+                              ElevatedButton.icon(
+                            icon: const Icon(
+                              Icons.document_scanner,
+                            ),
+                            label: const Text(
+                              'เริ่มสแกนพื้นที่นี้',
+                              style: TextStyle(
+                                fontSize: 17,
+                              ),
+                            ),
+                            onPressed: () async {
+                              setSheetState(() {
+                                scanning = true;
+                                temporaryFrameCount =
+                                    0;
+                              });
+
+                              await _runTemporaryScan(
+                                onProgress:
+                                    (count) {
+                                  if (sheetContext
+                                      .mounted) {
+                                    setSheetState(() {
+                                      temporaryFrameCount =
+                                          count;
+                                    });
+                                  }
+                                },
+                              );
+
+                              if (!sheetContext
+                                  .mounted) {
+                                return;
+                              }
+
+                              setSheetState(() {
+                                scanning = false;
+                              });
+
+                              final save =
+                                  await showDialog<
+                                      bool>(
+                                context:
+                                    sheetContext,
+                                builder:
+                                    (dialogContext) {
+                                  return AlertDialog(
+                                    title:
+                                        const Text(
+                                      'สแกนเสร็จแล้ว',
+                                    ),
+                                    content:
+                                        Text(
+                                      'พื้นที่ $selectedArea\n\n'
+                                      'ระบบรับข้อมูลชั่วคราว '
+                                      '$temporaryFrameCount ช่วง\n\n'
+                                      'ต้องการบันทึก "ข้อมูลการสแกน" หรือไม่?\n'
+                                      'ไม่มีการบันทึกรูปภาพ',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed:
+                                            () {
+                                          Navigator
+                                              .pop(
+                                            dialogContext,
+                                            false,
+                                          );
+                                        },
+                                        child:
+                                            const Text(
+                                          'ยกเลิก',
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed:
+                                            () {
+                                          Navigator
+                                              .pop(
+                                            dialogContext,
+                                            true,
+                                          );
+                                        },
+                                        child:
+                                            const Text(
+                                          'บันทึกข้อมูล',
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+
+                              if (save == true) {
+                                Navigator.pop(
+                                  sheetContext,
+                                );
+
+                                await _saveScan(
+                                  'สแกนองค์จริง',
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+              );
+            },
+          );
+        },
+      );
 
-                const SizedBox(height: 12),
+      await cameraController?.dispose();
+      cameraController = null;
 
-                if (cameraController !=
-                        null &&
-                    cameraController!
-                        .value
-                        .isInitialized)
-                  AspectRatio(
-                    aspectRatio:
-                        cameraController!
-                            .value
-                            .aspectRatio,
-                    child: CameraPreview(
-                      cameraController!,
-                    ),
-                  ),
+      if (mounted) {
+        setState(() {
+          cameraReady = false;
+          scanning = false;
+        });
+      }
+    } catch (e) {
+      await cameraController?.dispose();
+      cameraController = null;
 
-                const SizedBox(height: 16),
+      if (!mounted) return;
 
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(
-                      Icons.check,
-                    ),
-                    label: Text(
-                      'เสร็จ '
-                      '$selectedArea',
-                    ),
-                    onPressed: () async {
-                      Navigator.pop(
-                        sheetContext,
-                      );
+      setState(() {
+        cameraReady = false;
+        scanning = false;
+      });
 
-                      await _saveScan(
-                        'สแกนองค์จริง',
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    await cameraController?.dispose();
-    cameraController = null;
+      _showMessage(
+        'เปิดกล้องไม่สำเร็จ: $e',
+      );
+    }
   }
 
+  // =====================================================
+  // TEMPORARY SCAN
+  // =====================================================
+
+  Future<void> _runTemporaryScan({
+    required void Function(int count)
+        onProgress,
+  }) async {
+    if (cameraController == null ||
+        !cameraController!.value.isInitialized) {
+      return;
+    }
+
+    const totalFrames = 12;
+
+    for (int i = 1; i <= totalFrames; i++) {
+      if (!mounted) return;
+
+      /*
+       * จุดสำคัญ:
+       *
+       * ตอนนี้เรายังไม่ส่งภาพเข้า AI
+       * และไม่เรียก takePicture()
+       *
+       * ระบบจึงยังไม่สร้างไฟล์รูปภาพจากการสแกน
+       *
+       * ส่วนนี้เตรียมพื้นที่ไว้สำหรับระบบวิเคราะห์
+       * ในขั้นต่อไป
+       */
+
+      await Future.delayed(
+        const Duration(
+          milliseconds: 350,
+        ),
+      );
+
+      onProgress(i);
+    }
+  }
+
+  // =====================================================
+  // SCAN FROM PHONE
+  // =====================================================
+
   Future<void> _pickFromPhone() async {
-    final image =
-        await picker.pickImage(
+    final image = await picker.pickImage(
       source: ImageSource.gallery,
     );
 
     if (image == null) return;
 
-    // ใช้ภาพเพื่อการวิเคราะห์เท่านั้น
-    // ไม่บันทึก path
-    // ไม่บันทึกรูปภาพลงฐานข้อมูล
+    /*
+     * ใช้ภาพเพื่อการวิเคราะห์เท่านั้น
+     *
+     * ไม่บันทึก path
+     * ไม่เพิ่ม path ลง ScanData
+     * ไม่เก็บไฟล์ภาพในฐานข้อมูล
+     *
+     * image จะหมดการอ้างอิงหลังจากขั้นตอนนี้
+     */
 
     await _saveScan(
       'สแกนจากตัวเครื่อง',
     );
   }
+
+  // =====================================================
+  // START SELECTED SCAN
+  // =====================================================
 
   Future<void> _startSelectedScan(
     String area,
@@ -1811,11 +2152,15 @@ class _ScanPageState
     });
 
     if (realObjectMode) {
-      await _startCamera();
+      await _openCameraScanner();
     } else {
       await _pickFromPhone();
     }
   }
+
+  // =====================================================
+  // SAVE SCAN DATA
+  // =====================================================
 
   Future<void> _saveScan(
     String method,
@@ -1834,7 +2179,16 @@ class _ScanPageState
       area: selectedArea,
       scanNumber: scanNumber,
       method: method,
-      details: {},
+      details: {
+        'analysisStatus':
+            'รอระบบวิเคราะห์',
+        'imageSaved':
+            false,
+        'temporaryOnly':
+            true,
+        'sourceArea':
+            selectedArea,
+      },
     );
 
     widget.item.scans.add(scan);
@@ -1874,12 +2228,16 @@ class _ScanPageState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'บันทึก $oldArea '
+          'บันทึกข้อมูล $oldArea '
           '• สแกนครั้งที่ $scanNumber แล้ว',
         ),
       ),
     );
   }
+
+  // =====================================================
+  // AREAS
+  // =====================================================
 
   List<String> _allAreas() {
     final areas = [
@@ -1907,6 +2265,10 @@ class _ScanPageState
         )
         .length;
   }
+
+  // =====================================================
+  // ADD CUSTOM AREA
+  // =====================================================
 
   Future<void> _addCustomArea() async {
     final controller =
@@ -1970,11 +2332,33 @@ class _ScanPageState
     });
   }
 
+  // =====================================================
+  // MESSAGE
+  // =====================================================
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
+  }
+
+  // =====================================================
+  // DISPOSE
+  // =====================================================
+
   @override
   void dispose() {
     cameraController?.dispose();
     super.dispose();
   }
+
+  // =====================================================
+  // UI
+  // =====================================================
 
   @override
   Widget build(BuildContext context) {
@@ -1989,29 +2373,47 @@ class _ScanPageState
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            'องค์จริงลำดับที่ '
-            '${widget.item.realItemNumber}',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          // -------------------------------------------------
+          // ITEM NUMBER
+          // -------------------------------------------------
+
+          Card(
+            child: Padding(
+              padding:
+                  const EdgeInsets.all(16),
+              child: Text(
+                'องค์จริงลำดับที่ '
+                '${widget.item.realItemNumber}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
 
           const Text(
-            'เลือกวิธีนำเข้าข้อมูลก่อน '
-            'แล้วแตะพื้นที่ที่ต้องการสแกน',
+            'เลือกวิธีนำเข้าข้อมูล แล้วเลือกพื้นที่ที่ต้องการสแกน',
+            style: TextStyle(
+              fontSize: 15,
+            ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
+
+          // -------------------------------------------------
+          // METHOD
+          // -------------------------------------------------
 
           const Text(
             'วิธีสแกน',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
 
@@ -2021,17 +2423,21 @@ class _ScanPageState
             segments: const [
               ButtonSegment<bool>(
                 value: true,
-                icon:
-                    Icon(Icons.camera_alt),
-                label:
-                    Text('สแกนองค์จริง'),
+                icon: Icon(
+                  Icons.camera_alt,
+                ),
+                label: Text(
+                  'สแกนองค์จริง',
+                ),
               ),
               ButtonSegment<bool>(
                 value: false,
-                icon:
-                    Icon(Icons.photo_library),
-                label:
-                    Text('จากตัวเครื่อง'),
+                icon: Icon(
+                  Icons.photo_library,
+                ),
+                label: Text(
+                  'จากตัวเครื่อง',
+                ),
               ),
             ],
             selected: {
@@ -2048,11 +2454,55 @@ class _ScanPageState
 
           const SizedBox(height: 20),
 
+          // -------------------------------------------------
+          // CURRENT AREA
+          // -------------------------------------------------
+
+          Card(
+            child: Padding(
+              padding:
+                  const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'พื้นที่ที่เลือก',
+                    style: TextStyle(
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    selectedArea,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'สแกนแล้ว '
+                    '${_scanCount(selectedArea)} ครั้ง',
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // -------------------------------------------------
+          // AREAS
+          // -------------------------------------------------
+
           const Text(
             'พื้นที่สแกน',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
 
@@ -2075,20 +2525,22 @@ class _ScanPageState
                 child: ListTile(
                   leading: Icon(
                     count > 0
-                        ? Icons
-                            .check_circle
+                        ? Icons.check_circle
                         : Icons
                             .radio_button_unchecked,
                   ),
                   title: Text(
                     area,
-                    style: const TextStyle(
+                    style:
+                        const TextStyle(
                       fontWeight:
                           FontWeight.bold,
                     ),
                   ),
                   subtitle: Text(
-                    'สแกนแล้ว $count ครั้ง',
+                    count == 0
+                        ? 'ยังไม่ได้สแกน'
+                        : 'สแกนแล้ว $count ครั้ง',
                   ),
                   trailing:
                       const Icon(
@@ -2104,19 +2556,32 @@ class _ScanPageState
             },
           ),
 
+          // -------------------------------------------------
+          // ADD AREA
+          // -------------------------------------------------
+
           Card(
             child: ListTile(
               leading:
                   const Icon(Icons.add),
               title: const Text(
                 'เพิ่มหมวดเอง',
+                style: TextStyle(
+                  fontWeight:
+                      FontWeight.bold,
+                ),
               ),
               subtitle: const Text(
-                'สำหรับพื้นที่เฉพาะของพระหรือเหรียญ',
+                'สำหรับรายละเอียดเฉพาะของพระหรือเหรียญ',
               ),
-              onTap: _addCustomArea,
+              onTap:
+                  _addCustomArea,
             ),
           ),
+
+          // -------------------------------------------------
+          // SCAN HISTORY
+          // -------------------------------------------------
 
           if (showHistory) ...[
             const SizedBox(height: 20),
@@ -2140,12 +2605,18 @@ class _ScanPageState
 
                     const SizedBox(height: 10),
 
-                    if (widget.item.scans.isEmpty)
+                    if (widget
+                        .item
+                        .scans
+                        .isEmpty)
                       const Text(
                         'ยังไม่มีข้อมูลการสแกน',
                       ),
 
-                    ...widget.item.scans.map(
+                    ...widget
+                        .item
+                        .scans
+                        .map(
                       (scan) {
                         return ListTile(
                           dense: true,
@@ -2158,7 +2629,8 @@ class _ScanPageState
                             '${scan.area} • '
                             'สแกน ${scan.scanNumber}',
                           ),
-                          subtitle: Text(
+                          subtitle:
+                              Text(
                             scan.method,
                           ),
                         );
@@ -2174,3 +2646,7 @@ class _ScanPageState
     );
   }
 }
+
+                    
+
+
