@@ -2079,40 +2079,59 @@ class _ScanPageState extends State<ScanPage> {
   // =====================================================
 
   Future<void> _runTemporaryScan({
-    required void Function(int count)
-        onProgress,
-  }) async {
-    if (cameraController == null ||
-        !cameraController!.value.isInitialized) {
-      return;
-    }
+  required void Function(int count) onProgress,
+}) async {
+  if (cameraController == null ||
+      !cameraController!.value.isInitialized) {
+    return;
+  }
 
-    const totalFrames = 12;
+  const totalFrames = 12;
+  int frameCount = 0;
+  bool streamStarted = false;
 
-    for (int i = 1; i <= totalFrames; i++) {
-      if (!mounted) return;
+  try {
+    await cameraController!.startImageStream(
+      (CameraImage image) {
+        if (!mounted) return;
 
-      /*
-       * จุดสำคัญ:
-       *
-       * ตอนนี้เรายังไม่ส่งภาพเข้า AI
-       * และไม่เรียก takePicture()
-       *
-       * ระบบจึงยังไม่สร้างไฟล์รูปภาพจากการสแกน
-       *
-       * ส่วนนี้เตรียมพื้นที่ไว้สำหรับระบบวิเคราะห์
-       * ในขั้นต่อไป
-       */
+        frameCount++;
 
+        // รับภาพจากกล้องไว้ชั่วคราวในหน่วยความจำเท่านั้น
+        // ยังไม่มีการสร้างไฟล์รูป และไม่มีการบันทึกรูปลงเครื่อง
+
+        onProgress(frameCount);
+
+        if (frameCount >= totalFrames) {
+          // หยุดรับภาพเมื่อครบจำนวนเฟรม
+          if (cameraController!.value.isStreamingImages) {
+            cameraController!.stopImageStream();
+          }
+        }
+      },
+    );
+
+    streamStarted = true;
+
+    while (mounted && frameCount < totalFrames) {
       await Future.delayed(
-        const Duration(
-          milliseconds: 350,
-        ),
+        const Duration(milliseconds: 50),
       );
-
-      onProgress(i);
+    }
+  } catch (e) {
+    if (mounted) {
+      _showMessage(
+        'รับข้อมูลจากกล้องไม่สำเร็จ: $e',
+      );
+    }
+  } finally {
+    if (streamStarted &&
+        cameraController != null &&
+        cameraController!.value.isStreamingImages) {
+      await cameraController!.stopImageStream();
     }
   }
+}
 
   // =====================================================
   // SCAN FROM PHONE
