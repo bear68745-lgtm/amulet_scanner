@@ -367,7 +367,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
     modelController.dispose();
     typeController.dispose();
     templeController.dispose();
-    provinceCfinalller.dispose();
+    provinceController.dispose();
     yearController.dispose();
     materialController.dispose();
     sizeController.dispose();
@@ -401,7 +401,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
             'รายละเอียดองค์จริง',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeightntrollerdispose: FontWeight.bold,
             ),
           ),
 
@@ -666,7 +666,8 @@ class _DetailPageState extends State<DetailPage> {
     backController = TextEditingController(text: item.backDetail);
   }
 
-  @override 
+  @override
+  void dispose() {
     nameController.dispose();
     modelController.dispose();
     typeController.dispose();
@@ -686,6 +687,7 @@ class _DetailPageState extends State<DetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+
         title: Text(
           'องค์จริง ${widget.item.realItemNumber}',
         ),
