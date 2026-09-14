@@ -352,8 +352,8 @@ class _CreateDataPageState extends State<CreateDataPage> {
   final nameController = TextEditingController();
   final modelController = TextEditingController();
   final typeController = TextEditingController();
-  final templeController = TextEditingController();
-  final provinceController = TextEditingController();
+  final templeController = TextEditingController(text: item.temple);
+  final provinceController = TextEditingController(text: item.province);
   final yearController = TextEditingController();
   final materialController = TextEditingController();
   final sizeController = TextEditingController();
