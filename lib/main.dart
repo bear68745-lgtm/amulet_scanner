@@ -249,19 +249,20 @@ class HomePage extends StatelessWidget {
                 title: 'ตั้งค่า',
                 subtitle: 'ตั้งค่าการทำงานของแอป',
                 color: Colors.grey,
+                
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'ตั้งค่าจะพัฒนาในขั้นต่อไป',
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+                Navigator.push(
+                 context,
+                MaterialPageRoute(
+                 builder: (_) => SettingsPage(
+                cameras: cameras,
+               ),
+             ),
+            );
+           },
+         ),
         ),
+       ),
       ),
     );
   }
@@ -715,267 +716,388 @@ class _SavedListPageState extends State<SavedListPage> {
 // หน้ารายละเอียด
 // =====================================================
 
-class DetailPage extends StatefulWidget {
-  final AmuletData item;
+class SavedListPage extends StatefulWidget {
   final List<CameraDescription> cameras;
 
-  const DetailPage({
+  const SavedListPage({
     super.key,
-    required this.item,
     required this.cameras,
   });
 
   @override
-  State<DetailPage> createState() => _DetailPageState();
+  State<SavedListPage> createState() => _SavedListPageState();
 }
 
-class _DetailPageState extends State<DetailPage> {
-  late TextEditingController nameController;
-  late TextEditingController modelController;
-  late TextEditingController typeController;
-  late TextEditingController templeController;
-  late TextEditingController provinceController;
-  late TextEditingController yearController;
-  late TextEditingController materialController;
-  late TextEditingController sizeController;
-  late TextEditingController frontController;
-  late TextEditingController sideController;
-  late TextEditingController backController;
+class _SavedListPageState extends State<SavedListPage> {
+  List<AmuletData> items = [];
+  List<AmuletData> filteredItems = [];
+
+  final TextEditingController searchController =
+      TextEditingController();
 
   @override
   void initState() {
     super.initState();
-
-    final item = widget.item;
-
-    nameController = TextEditingController(text: item.name);
-    modelController = TextEditingController(text: item.model);
-    typeController = TextEditingController(text: item.type);
-    templeController = TextEditingController(text: item.temple);
-    provinceController =
-        TextEditingController(text: item.province);
-    yearController = TextEditingController(text: item.year);
-    materialController =
-        TextEditingController(text: item.material);
-    sizeController = TextEditingController(text: item.size);
-    frontController =
-        TextEditingController(text: item.frontDetail);
-    sideController =
-        TextEditingController(text: item.sideDetail);
-    backController =
-        TextEditingController(text: item.backDetail);
+    searchController.addListener(_search);
+    _loadData();
   }
 
   @override
   void dispose() {
-    nameController.dispose();
-    modelController.dispose();
-    typeController.dispose();
-    templeController.dispose();
-    provinceController.dispose();
-    yearController.dispose();
-    materialController.dispose();
-    sizeController.dispose();
-    frontController.dispose();
-    sideController.dispose();
-    backController.dispose();
-
+    searchController.removeListener(_search);
+    searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final saved =
+        prefs.getStringList('amulet_data') ?? [];
+
+    final loaded = saved.map((item) {
+      return AmuletData.fromMap(
+        jsonDecode(item),
+      );
+    }).toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      items = loaded;
+      filteredItems = loaded;
+    });
+
+    _search();
+  }
+
+  void _search() {
+    final keyword =
+        searchController.text.trim().toLowerCase();
+
+    if (keyword.isEmpty) {
+      if (mounted) {
+        setState(() {
+          filteredItems = items;
+        });
+      }
+      return;
+    }
+
+    final result = items.where((item) {
+      final text = [
+        item.realItemNumber.toString(),
+        item.name,
+        item.model,
+        item.type,
+        item.temple,
+        item.province,
+        item.year,
+        item.material,
+        item.size,
+      ].join(' ').toLowerCase();
+
+      return text.contains(keyword);
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        filteredItems = result;
+      });
+    }
+  }
+
+  int _sameModelCount(AmuletData item) {
+    final name = item.name.trim().toLowerCase();
+    final model = item.model.trim().toLowerCase();
+
+    if (name.isEmpty && model.isEmpty) {
+      return 0;
+    }
+
+    return items.where((other) {
+      return other.name.trim().toLowerCase() == name &&
+          other.model.trim().toLowerCase() == model;
+    }).length;
+  }
+
+  Future<void> _deleteItem(
+    AmuletData item,
+  ) async {
+    final confirm =
+        await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('ลบข้อมูล'),
+          content: Text(
+            'ต้องการลบข้อมูลนี้หรือไม่?\n\n'
+            'องค์จริงลำดับที่ ${item.realItemNumber}\n'
+            '${item.name.isEmpty ? 'ยังไม่ได้ระบุชื่อ' : item.name}\n\n'
+            'ข้อมูลการสแกนขององค์นี้จะถูกลบด้วย',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  context,
+                  false,
+                );
+              },
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(
+                  context,
+                  true,
+                );
+              },
+              child: const Text('ลบข้อมูล'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    final prefs =
+        await SharedPreferences.getInstance();
+
+    final saved =
+        prefs.getStringList('amulet_data') ?? [];
+
+    final remaining =
+        saved.where((jsonString) {
+      final map = jsonDecode(jsonString);
+
+      return map['id'] != item.id;
+    }).toList();
+
+    await prefs.setStringList(
+      'amulet_data',
+      remaining,
+    );
+
+    await _loadData();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'ลบองค์จริงลำดับที่ '
+          '${item.realItemNumber} แล้ว',
+        ),
+      ),
+    );
+  }
+
+  Widget _achievement(int count) {
+    if (count < 5) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.amber.shade100,
+      ),
+      child: Text(
+        '🏅 พื้นฐาน 5+ องค์ • $count องค์',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'องค์จริง ${widget.item.realItemNumber}',
+        title: const Text(
+          'รายการข้อมูลที่บันทึก',
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Column(
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              12,
+              12,
+              12,
+              6,
+            ),
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText:
+                    'ค้นหา ชื่อ รุ่น วัด จังหวัด ปี เนื้อ หรือเลขรายการ',
+                prefixIcon:
+                    const Icon(Icons.search),
+                suffixIcon:
+                    searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(
+                              Icons.clear,
+                            ),
+                            onPressed: () {
+                              searchController.clear();
+                            },
+                          ),
+                border:
+                    const OutlineInputBorder(),
+              ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
               child: Text(
-                'องค์จริงลำดับที่ ${widget.item.realItemNumber}',
+                'พบ ${filteredItems.length} รายการ',
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
                 ),
               ),
             ),
           ),
 
-          const SizedBox(height: 12),
-
-          _field('ชื่อพระ / เหรียญ', nameController),
-          _field('รุ่น', modelController),
-          _field('พิมพ์', typeController),
-          _field('วัด / สำนัก', templeController),
-          _field('จังหวัด', provinceController),
-          _field('ปีสร้าง', yearController),
-          _field('เนื้อ', materialController),
-          _field('ขนาด', sizeController),
-
-          const SizedBox(height: 8),
-
-          const Text(
-            'รายละเอียด',
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          _field(
-            'รายละเอียดด้านหน้า',
-            frontController,
-            maxLines: 4,
-          ),
-
-          _field(
-            'รายละเอียดด้านข้าง',
-            sideController,
-            maxLines: 4,
-          ),
-
-          _field(
-            'รายละเอียดด้านหลัง',
-            backController,
-            maxLines: 4,
-          ),
-
-          const SizedBox(height: 10),
-
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text(
-                'สแกนเพิ่ม',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: Text(
-                widget.item.scans.isEmpty
-                    ? 'ยังไม่มีข้อมูลการสแกน'
-                    : 'มีข้อมูลการสแกน '
-                        '${widget.item.scans.length} รายการ',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ScanPage(
-                      item: widget.item,
-                      cameras: widget.cameras,
+          Expanded(
+            child: filteredItems.isEmpty
+                ? const Center(
+                    child: Text(
+                      'ไม่พบข้อมูล',
+                      style: TextStyle(
+                        fontSize: 18,
+                      ),
                     ),
+                  )
+                : ListView.builder(
+                    padding:
+                        const EdgeInsets.all(12),
+                    itemCount:
+                        filteredItems.length,
+                    itemBuilder:
+                        (context, index) {
+                      final item =
+                          filteredItems[index];
+
+                      final sameCount =
+                          _sameModelCount(item);
+
+                      return Card(
+                        margin:
+                            const EdgeInsets.only(
+                          bottom: 10,
+                        ),
+                        child: ListTile(
+                          leading:
+                              CircleAvatar(
+                            child: Text(
+                              '${item.realItemNumber}',
+                            ),
+                          ),
+                          title: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .start,
+                            children: [
+                              Text(
+                                item.name.isEmpty
+                                    ? 'ยังไม่ได้ระบุชื่อ'
+                                    : item.name,
+                                style:
+                                    const TextStyle(
+                                  fontWeight:
+                                      FontWeight.bold,
+                                ),
+                              ),
+                              _achievement(
+                                sameCount,
+                              ),
+                            ],
+                          ),
+                          subtitle: Padding(
+                            padding:
+                                const EdgeInsets
+                                    .only(
+                              top: 5,
+                            ),
+                            child: Text(
+                              'องค์จริงลำดับที่ '
+                              '${item.realItemNumber}'
+                              '${item.model.isEmpty ? '' : ' • ${item.model}'}',
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize:
+                                MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip:
+                                    'ลบข้อมูล',
+                                icon: const Icon(
+                                  Icons
+                                      .delete_outline,
+                                  color:
+                                      Colors.red,
+                                ),
+                                onPressed: () {
+                                  _deleteItem(
+                                    item,
+                                  );
+                                },
+                              ),
+                              const Icon(
+                                Icons.chevron_right,
+                              ),
+                            ],
+                          ),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    DetailPage(
+                                  item: item,
+                                  cameras:
+                                      widget
+                                          .cameras,
+                                ),
+                              ),
+                            );
+
+                            await _loadData();
+                          },
+                        ),
+                      );
+                    },
                   ),
-                );
-
-                setState(() {});
-              },
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          SizedBox(
-            height: 55,
-            child: ElevatedButton.icon(
-              onPressed: _saveChanges,
-              icon: const Icon(Icons.save),
-              label: const Text(
-                'บันทึกการแก้ไข',
-                style: TextStyle(fontSize: 18),
-              ),
-            ),
           ),
         ],
       ),
     );
   }
-
-  Widget _field(
-    String label,
-    TextEditingController controller, {
-    int maxLines = 1,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _saveChanges() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final saved = prefs.getStringList('amulet_data') ?? [];
-
-    final items = saved.map((item) {
-      return AmuletData.fromMap(
-        jsonDecode(item),
-      );
-    }).toList();
-
-    final index = items.indexWhere(
-      (element) => element.id == widget.item.id,
-    );
-
-    if (index == -1) return;
-
-    final oldItem = items[index];
-
-    items[index] = AmuletData(
-      id: oldItem.id,
-      realItemNumber: oldItem.realItemNumber,
-      name: nameController.text,
-      model: modelController.text,
-      type: typeController.text,
-      temple: templeController.text,
-      province: provinceController.text,
-      year: yearController.text,
-      material: materialController.text,
-      size: sizeController.text,
-      frontDetail: frontController.text,
-      sideDetail: sideController.text,
-      backDetail: backController.text,
-      scans: oldItem.scans,
-    );
-
-    final newData = items.map((item) {
-      return jsonEncode(item.toMap());
-    }).toList();
-
-    await prefs.setStringList(
-      'amulet_data',
-      newData,
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'บันทึกการแก้ไขเรียบร้อยแล้ว',
-        ),
-      ),
-    );
-
-    Navigator.pop(context);
-  }
 }
+
 
 // =====================================================
 // สำรอง / นำเข้าข้อมูล
@@ -1297,11 +1419,8 @@ class _BackupPageState extends State<BackupPage> {
         ),
       ),
     );
-  }
-}
-
-// =====================================================
-// หน้าสแกนเพิ่ม
+  // =====================================================
+// หน้าสแกน
 // =====================================================
 
 class ScanPage extends StatefulWidget {
@@ -1334,6 +1453,10 @@ class _ScanPageState extends State<ScanPage> {
 
   String selectedArea = 'ด้านหน้า';
 
+  // true = องค์จริง
+  // false = จากตัวเครื่อง
+  bool realObjectMode = true;
+
   @override
   void initState() {
     super.initState();
@@ -1349,10 +1472,16 @@ class _ScanPageState extends State<ScanPage> {
       enableAudio: false,
     );
 
-    await controller!.initialize();
+    try {
+      await controller!.initialize();
 
-    if (mounted) {
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint(
+        'Camera initialize error: $e',
+      );
     }
   }
 
@@ -1362,19 +1491,38 @@ class _ScanPageState extends State<ScanPage> {
     super.dispose();
   }
 
+  int _scanCount(String area) {
+    return widget.item.scans
+        .where(
+          (scan) => scan.area == area,
+        )
+        .length;
+  }
+
+  String? _nextArea() {
+    final index =
+        defaultAreas.indexOf(selectedArea);
+
+    if (index == -1) return null;
+
+    if (index + 1 >= defaultAreas.length) {
+      return null;
+    }
+
+    return defaultAreas[index + 1];
+  }
+
   Future<void> _saveScan(
     String method,
   ) async {
-    final int scanNumber = widget.item.scans
-            .where(
-              (scan) =>
-                  scan.area == selectedArea,
-            )
-            .length +
-        1;
+    final currentArea =
+        selectedArea;
+
+    final scanNumber =
+        _scanCount(currentArea) + 1;
 
     final scan = ScanData(
-      area: selectedArea,
+      area: currentArea,
       scanNumber: scanNumber,
       method: method,
       details: {},
@@ -1386,16 +1534,26 @@ class _ScanPageState extends State<ScanPage> {
         await SharedPreferences.getInstance();
 
     final data =
-        prefs.getStringList('amulet_data') ?? [];
+        prefs.getStringList(
+              'amulet_data',
+            ) ??
+            [];
 
     final updatedData =
         data.map((jsonString) {
-      final map = jsonDecode(jsonString);
+      final map = jsonDecode(
+        jsonString,
+      );
 
-      if (map['id'] == widget.item.id) {
-        map['scans'] = widget.item.scans
-            .map((scan) => scan.toMap())
-            .toList();
+      if (map['id'] ==
+          widget.item.id) {
+        map['scans'] =
+            widget.item.scans
+                .map(
+                  (scan) =>
+                      scan.toMap(),
+                )
+                .toList();
       }
 
       return jsonEncode(map);
@@ -1406,98 +1564,180 @@ class _ScanPageState extends State<ScanPage> {
       updatedData,
     );
 
+    // ---------------------------------------------
+    // ไปพื้นที่ถัดไปอัตโนมัติ
+    // ---------------------------------------------
+
+    final next = _nextArea();
+
     if (!mounted) return;
 
-    Navigator.pop(context);
+    setState(() {
+      if (next != null) {
+        selectedArea = next;
+      }
+    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       SnackBar(
         content: Text(
-          'บันทึก $selectedArea '
-          '• สแกนครั้งที่ $scanNumber แล้ว',
+          next == null
+              ? '$currentArea • สแกนครั้งที่ '
+                  '$scanNumber เรียบร้อยแล้ว'
+              : '$currentArea • สแกนครั้งที่ '
+                  '$scanNumber เรียบร้อยแล้ว\n'
+                  'ต่อไป: $next',
         ),
       ),
     );
   }
 
-  Future<void> _scanFromCamera(
-    String method,
+  Future<void> _startSelectedScan(
+    String area,
   ) async {
+    setState(() {
+      selectedArea = area;
+    });
+
+    if (realObjectMode) {
+      await _scanRealObject();
+    } else {
+      await _scanFromPhone();
+    }
+  }
+
+  Future<void> _scanRealObject() async {
     if (controller == null ||
         !controller!.value.isInitialized) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'กล้องยังไม่พร้อม',
+          ),
+        ),
+      );
+
       return;
     }
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.black,
       builder: (context) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$selectedArea\n$method',
-                  textAlign: TextAlign.center,
+          child: Column(
+            mainAxisSize:
+                MainAxisSize.min,
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.all(12),
+                child: Text(
+                  'สแกน${selectedArea}',
                   style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 16),
-
-                AspectRatio(
-                  aspectRatio:
-                      controller!.value.aspectRatio,
-                  child: CameraPreview(
-                    controller!,
-                  ),
+              AspectRatio(
+                aspectRatio:
+                    controller!
+                        .value
+                        .aspectRatio,
+                child: CameraPreview(
+                  controller!,
                 ),
+              ),
 
-                const SizedBox(height: 16),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.check),
-                    label: Text(
-                      'บันทึกการสแกนครั้งที่ '
-                      '${widget.item.scans.where((s) => s.area == selectedArea).length + 1}',
+              Padding(
+                padding:
+                    const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Text(
+                      'จัดพระให้อยู่ในกรอบ '
+                      'แล้วแตะบันทึกเมื่อพร้อม',
+                      textAlign:
+                          TextAlign.center,
+                      style: TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize: 16,
+                      ),
                     ),
-                    onPressed: () {
-                      _saveScan(method);
-                    },
-                  ),
+
+                    const SizedBox(
+                      height: 12,
+                    ),
+
+                    SizedBox(
+                      width:
+                          double.infinity,
+                      height: 52,
+                      child:
+                          ElevatedButton.icon(
+                        icon:
+                            const Icon(
+                          Icons.check,
+                        ),
+                        label: Text(
+                          'เสร็จ ${selectedArea}',
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(
+                            context,
+                          );
+
+                          await _saveScan(
+                            'สแกนองค์จริง',
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Future<void> _pickFromPhone() async {
+  Future<void> _scanFromPhone() async {
     final image =
         await _picker.pickImage(
       source: ImageSource.gallery,
     );
 
-    if (image == null) return;
+    if (image == null) {
+      return;
+    }
 
-    // ใช้ภาพเพื่อการสแกนเท่านั้น
-    // ไม่บันทึก path หรือรูปภาพลงฐานข้อมูล
+    // ---------------------------------------------
+    // สำคัญ:
+    // ใช้รูปเพื่อการสแกนเท่านั้น
+    // ไม่เก็บ path
+    // ไม่เก็บรูป
+    // ไม่ใส่รูปลงฐานข้อมูล
+    // ---------------------------------------------
 
     await _saveScan(
-      'จากหน้าจอ/ภาพในโทรศัพท์นี้',
+      'สแกนจากตัวเครื่อง',
     );
   }
 
   Future<void> _addCustomArea() async {
-    final controller =
+    final textController =
         TextEditingController();
 
     final result =
@@ -1506,10 +1746,11 @@ class _ScanPageState extends State<ScanPage> {
       builder: (context) {
         return AlertDialog(
           title: const Text(
-            'เพิ่มหมวดพื้นที่',
+            'เพิ่มจุดสแกน',
           ),
           content: TextField(
-            controller: controller,
+            controller:
+                textController,
             autofocus: true,
             decoration:
                 const InputDecoration(
@@ -1522,7 +1763,9 @@ class _ScanPageState extends State<ScanPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(
+                  context,
+                );
               },
               child: const Text(
                 'ยกเลิก',
@@ -1531,7 +1774,8 @@ class _ScanPageState extends State<ScanPage> {
             ElevatedButton(
               onPressed: () {
                 final value =
-                    controller.text.trim();
+                    textController.text
+                        .trim();
 
                 if (value.isNotEmpty) {
                   Navigator.pop(
@@ -1549,6 +1793,8 @@ class _ScanPageState extends State<ScanPage> {
       },
     );
 
+    textController.dispose();
+
     if (result == null ||
         result.isEmpty) {
       return;
@@ -1559,186 +1805,349 @@ class _ScanPageState extends State<ScanPage> {
     });
   }
 
-  int _scanCount(String area) {
-    return widget.item.scans
-        .where(
-          (scan) => scan.area == area,
-        )
-        .length;
+  Widget _methodButton({
+    required bool realObject,
+    required IconData icon,
+    required String title,
+  }) {
+    final selected =
+        realObjectMode == realObject;
+
+    return Expanded(
+      child: ElevatedButton.icon(
+        onPressed: () {
+          setState(() {
+            realObjectMode =
+                realObject;
+          });
+        },
+        icon: Icon(icon),
+        label: Text(
+          title,
+          textAlign: TextAlign.center,
+        ),
+        style:
+            ElevatedButton.styleFrom(
+          backgroundColor: selected
+              ? Colors.blue
+              : Colors.grey.shade200,
+          foregroundColor: selected
+              ? Colors.white
+              : Colors.black87,
+          padding:
+              const EdgeInsets.symmetric(
+            vertical: 14,
+          ),
+        ),
+      ),
+    );
   }
 
-  Widget _areaButton(String area) {
-    final count = _scanCount(area);
+  Widget _areaButton(
+    String area,
+  ) {
+    final count =
+        _scanCount(area);
+
+    final selected =
+        selectedArea == area;
 
     return Card(
+      color: selected
+          ? Colors.blue.shade50
+          : null,
       child: ListTile(
         leading: Icon(
-          selectedArea == area
-              ? Icons.radio_button_checked
+          count > 0
+              ? Icons.check_circle
               : Icons.radio_button_unchecked,
+          color: count > 0
+              ? Colors.green
+              : null,
         ),
-        title: Text(area),
+        title: Text(
+          area,
+          style: const TextStyle(
+            fontWeight:
+                FontWeight.bold,
+          ),
+        ),
         subtitle: Text(
-          'สแกนแล้ว $count ครั้ง',
+          count == 0
+              ? 'ยังไม่ได้สแกน'
+              : 'สแกนแล้ว $count ครั้ง',
         ),
+        trailing: selected
+            ? const Icon(
+                Icons.play_arrow,
+              )
+            : null,
+
+        // -----------------------------------------
+        // สำคัญ:
+        // แตะด้านไหน = เริ่มวิธีที่เลือกทันที
+        // -----------------------------------------
         onTap: () {
-          setState(() {
-            selectedArea = area;
-          });
+          _startSelectedScan(
+            area,
+          );
         },
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final areas = [...defaultAreas];
+  Widget build(
+    BuildContext context,
+  ) {
+    final areas =
+        [...defaultAreas];
 
-    final customAreas = widget.item.scans
-        .map((scan) => scan.area)
-        .where(
-          (area) =>
-              !defaultAreas.contains(area),
-        )
-        .toSet()
-        .toList();
+    final customAreas =
+        widget.item.scans
+            .map(
+              (scan) =>
+                  scan.area,
+            )
+            .where(
+              (area) =>
+                  !defaultAreas
+                      .contains(
+                    area,
+                  ),
+            )
+            .toSet()
+            .toList();
 
-    areas.addAll(customAreas);
+    areas.addAll(
+      customAreas,
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'เลือกพื้นที่สแกน',
+          'สแกนข้อมูล',
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding:
+            const EdgeInsets.all(16),
         children: [
           Text(
             'องค์จริงลำดับที่ '
             '${widget.item.realItemNumber}',
-            style: const TextStyle(
+            style:
+                const TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
 
-          const SizedBox(height: 6),
+          if (widget.item.name
+              .isNotEmpty) ...[
+            const SizedBox(
+              height: 4,
+            ),
+            Text(
+              widget.item.name,
+              style:
+                  const TextStyle(
+                fontSize: 16,
+              ),
+            ),
+          ],
+
+          const SizedBox(
+            height: 16,
+          ),
 
           const Text(
-            'เลือกพื้นที่ที่ต้องการเก็บข้อมูล',
+            'วิธีสแกน',
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 19,
+              fontWeight:
+                  FontWeight.bold,
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(
+            height: 8,
+          ),
 
-          ...areas.map(_areaButton),
+          Row(
+            children: [
+              _methodButton(
+                realObject: true,
+                icon:
+                    Icons.camera_alt,
+                title:
+                    '📷 สแกนองค์จริง',
+              ),
+
+              const SizedBox(
+                width: 8,
+              ),
+
+              _methodButton(
+                realObject: false,
+                icon:
+                    Icons.phone_android,
+                title:
+                    '🖼️ จากตัวเครื่อง',
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height: 20,
+          ),
+
+          Container(
+            padding:
+                const EdgeInsets.all(14),
+            decoration:
+                BoxDecoration(
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
+              color:
+                  Colors.blue.shade50,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  realObjectMode
+                      ? Icons.camera_alt
+                      : Icons.photo_library,
+                  color:
+                      Colors.blue,
+                ),
+                const SizedBox(
+                  width: 10,
+                ),
+                Expanded(
+                  child: Text(
+                    realObjectMode
+                        ? 'เลือก “ด้านหน้า” หรือด้านอื่นเพื่อเปิดกล้องทันที'
+                        : 'เลือก “ด้านหน้า” หรือด้านอื่นเพื่อเลือกรูปจากตัวเครื่องทันที',
+                    style:
+                        const TextStyle(
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(
+            height: 20,
+          ),
+
+          const Text(
+            'เลือกด้านที่จะสแกน',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight:
+                  FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(
+            height: 6,
+          ),
+
+          const Text(
+            'แตะด้านที่ต้องการ แล้วระบบจะเริ่มวิธีสแกนที่เลือกทันที',
+          ),
+
+          const SizedBox(
+            height: 10,
+          ),
+
+          ...areas.map(
+            _areaButton,
+          ),
 
           Card(
             child: ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text(
-                'เพิ่มหมวดเอง',
+              leading:
+                  const Icon(
+                Icons.add,
               ),
-              subtitle: const Text(
-                'สำหรับพื้นที่เฉพาะของพระหรือเหรียญ',
+              title:
+                  const Text(
+                'เพิ่มจุดสแกนเอง',
               ),
-              onTap: _addCustomArea,
+              subtitle:
+                  const Text(
+                'สำหรับรายละเอียดเฉพาะขององค์นั้น',
+              ),
+              onTap:
+                  _addCustomArea,
             ),
           ),
 
-          const SizedBox(height: 20),
-
-          const Text(
-            'วิธีนำเข้าข้อมูล',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          const SizedBox(
+            height: 20,
           ),
-
-          const SizedBox(height: 8),
-
-          ElevatedButton.icon(
-            icon: const Icon(
-              Icons.camera_alt,
-            ),
-            label: const Text(
-              'สแกนองค์จริง',
-            ),
-            onPressed: () {
-              _scanFromCamera(
-                'สแกนองค์จริง',
-              );
-            },
-          ),
-
-          const SizedBox(height: 8),
-
-          ElevatedButton.icon(
-            icon: const Icon(
-              Icons.phone_android,
-            ),
-            label: const Text(
-              'สแกนผ่านหน้าจอเครื่องอื่น',
-            ),
-            onPressed: () {
-              _scanFromCamera(
-                'สแกนผ่านหน้าจอเครื่องอื่น',
-              );
-            },
-          ),
-
-          const SizedBox(height: 8),
-
-          ElevatedButton.icon(
-            icon: const Icon(
-              Icons.photo_library,
-            ),
-            label: const Text(
-              'สแกนจากหน้าจอ/ภาพในโทรศัพท์นี้',
-            ),
-            onPressed: _pickFromPhone,
-          ),
-
-          const SizedBox(height: 24),
 
           Card(
             child: Padding(
               padding:
-                  const EdgeInsets.all(16),
+                  const EdgeInsets.all(
+                16,
+              ),
               child: Column(
                 crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                    CrossAxisAlignment
+                        .start,
                 children: [
                   const Text(
                     'ประวัติการสแกน',
-                    style: TextStyle(
+                    style:
+                        TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(
+                    height: 10,
+                  ),
 
-                  if (widget.item.scans.isEmpty)
+                  if (widget
+                      .item
+                      .scans
+                      .isEmpty)
                     const Text(
                       'ยังไม่มีข้อมูลการสแกน',
                     ),
 
-                  ...widget.item.scans.map(
-                    (scan) => ListTile(
+                  ...widget
+                      .item
+                      .scans
+                      .map(
+                    (scan) =>
+                        ListTile(
                       dense: true,
-                      leading: const Icon(
-                        Icons.check_circle_outline,
+                      leading:
+                          const Icon(
+                        Icons
+                            .check_circle_outline,
+                        color:
+                            Colors.green,
                       ),
                       title: Text(
                         '${scan.area} • '
                         'สแกน ${scan.scanNumber}',
                       ),
-                      subtitle: Text(
+                      subtitle:
+                          Text(
                         scan.method,
                       ),
                     ),
