@@ -2077,8 +2077,7 @@ class _ScanPageState extends State<ScanPage> {
   // =====================================================
   // TEMPORARY SCAN
   // =====================================================
-
-  Future<void> _runTemporaryScan({
+Future<void> _runTemporaryScan({
   required void Function(int count) onProgress,
 }) async {
   if (cameraController == null ||
@@ -2087,77 +2086,74 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   const totalFrames = 12;
+
   int frameCount = 0;
-  bool streamStarted = false;
+  bool scanning = true;
+
+  // ป้องกันการรับภาพซ้ำหลังครบ 12 เฟรม
+  void stopScanning() {
+    scanning = false;
+  }
 
   try {
     await cameraController!.startImageStream(
       (CameraImage image) {
-        if (!mounted) return;
+        if (!scanning) {
+          return;
+        }
 
         frameCount++;
 
-        // รับภาพจากกล้องไว้ชั่วคราวในหน่วยความจำเท่านั้น
-        // ยังไม่มีการสร้างไฟล์รูป และไม่มีการบันทึกรูปลงเครื่อง
+        // -----------------------------------------
+        // จุดสำคัญ:
+        // image อยู่ใน RAM ระหว่างการประมวลผลเท่านั้น
+        // ยังไม่มีการบันทึกเป็นไฟล์
+        // -----------------------------------------
+
+        // ขั้นต่อไปเราจะนำ image ไปวิเคราะห์
+        // เช่น ขนาดภาพ / ความสว่าง / รายละเอียด
+        // / ด้านหน้า / ด้านข้าง / ด้านหลัง
+        //
+        // ตอนนี้ยังไม่ใส่ AI
+        // เพียงรับและนับ CameraImage จริงก่อน
 
         onProgress(frameCount);
 
+        // ครบ 12 เฟรม
         if (frameCount >= totalFrames) {
-          // หยุดรับภาพเมื่อครบจำนวนเฟรม
-          if (cameraController!.value.isStreamingImages) {
-            cameraController!.stopImageStream();
-          }
+          stopScanning();
         }
       },
     );
 
-    streamStarted = true;
-
-    while (mounted && frameCount < totalFrames) {
+    // รอจนกว่าจะครบ 12 เฟรม
+    while (scanning) {
       await Future.delayed(
-        const Duration(milliseconds: 50),
+        const Duration(milliseconds: 20),
       );
+
+      if (!mounted) {
+        scanning = false;
+        break;
+      }
     }
-  } catch (e) {
-    if (mounted) {
-      _showMessage(
-        'รับข้อมูลจากกล้องไม่สำเร็จ: $e',
-      );
-    }
-  } finally {
-    if (streamStarted &&
-        cameraController != null &&
-        cameraController!.value.isStreamingImages) {
+
+    // หยุดรับภาพจากกล้อง
+    if (cameraController!.value.isStreamingImages) {
       await cameraController!.stopImageStream();
     }
+  } catch (e) {
+    // หากเกิดข้อผิดพลาด ให้หยุด stream
+    scanning = false;
+
+    if (cameraController!.value.isStreamingImages) {
+      await cameraController!.stopImageStream();
+    }
+
+    debugPrint('Temporary scan error: $e');
   }
 }
-
-  // =====================================================
-  // SCAN FROM PHONE
-  // =====================================================
-
-  Future<void> _pickFromPhone() async {
-    final image = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
-
-    if (image == null) return;
-
-    /*
-     * ใช้ภาพเพื่อการวิเคราะห์เท่านั้น
-     *
-     * ไม่บันทึก path
-     * ไม่เพิ่ม path ลง ScanData
-     * ไม่เก็บไฟล์ภาพในฐานข้อมูล
-     *
-     * image จะหมดการอ้างอิงหลังจากขั้นตอนนี้
-     */
-
-    await _saveScan(
-      'สแกนจากตัวเครื่อง',
-    );
-  }
+  
 
   // =====================================================
   // START SELECTED SCAN
