@@ -1,0 +1,26 @@
+name: amulet_scanner
+description: แอปกล้องแสกนพระและเหรียญ ไม่บันทึกรูปภาพ
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  camera: ^0.11.0+2
+  shared_preferences: ^2.5.3
+  image_picker: ^1.1.2
+  file_picker: ^8.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
