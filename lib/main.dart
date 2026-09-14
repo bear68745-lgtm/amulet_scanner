@@ -401,7 +401,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
             'รายละเอียดองค์จริง',
             style: TextStyle(
               fontSize: 18,
-              fontWeightntrollerdispose: FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
 
