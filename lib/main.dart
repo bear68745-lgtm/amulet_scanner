@@ -44,11 +44,13 @@ class AmuletScannerApp extends StatelessWidget {
 // =====================================================
 // DATA
 // =====================================================
-
 class AmuletData {
   int id;
   int realItemNumber;
 
+  // ===============================
+  // ข้อมูลอ้างอิงของรายการพระ
+  // ===============================
   String name;
   String model;
   String type;
@@ -58,15 +60,25 @@ class AmuletData {
   String material;
   String size;
 
+  // ===============================
+  // ข้อมูลเก่า
+  // เก็บไว้เพื่อไม่ให้ข้อมูลเดิมหาย
+  // แต่จะไม่นำมาให้ผู้ใช้กรอกใหม่
+  // ===============================
   String frontDetail;
   String sideDetail;
   String backDetail;
 
+  // ===============================
+  // ข้อมูลการสแกนขององค์จริง
+  // ===============================
   List<ScanData> scans;
 
   AmuletData({
     required this.id,
     required this.realItemNumber,
+
+    // ข้อมูลอ้างอิง
     this.name = '',
     this.model = '',
     this.type = '',
@@ -75,9 +87,12 @@ class AmuletData {
     this.year = '',
     this.material = '',
     this.size = '',
+
+    // ข้อมูลเก่า
     this.frontDetail = '',
     this.sideDetail = '',
     this.backDetail = '',
+
     List<ScanData>? scans,
   }) : scans = scans ?? [];
 
@@ -85,6 +100,8 @@ class AmuletData {
     return {
       'id': id,
       'realItemNumber': realItemNumber,
+
+      // ข้อมูลอ้างอิง
       'name': name,
       'model': model,
       'type': type,
@@ -93,19 +110,31 @@ class AmuletData {
       'year': year,
       'material': material,
       'size': size,
+
+      // ข้อมูลเก่า
+      // ยังเก็บไว้เพื่อรองรับข้อมูลเดิม
       'frontDetail': frontDetail,
       'sideDetail': sideDetail,
       'backDetail': backDetail,
-      'scans': scans.map((scan) => scan.toMap()).toList(),
+
+      // ข้อมูลสแกน
+      'scans': scans
+          .map((scan) => scan.toMap())
+          .toList(),
     };
   }
 
-  factory AmuletData.fromMap(Map<String, dynamic> map) {
+  factory AmuletData.fromMap(
+    Map<String, dynamic> map,
+  ) {
     final scanList = map['scans'] as List? ?? [];
 
     return AmuletData(
       id: map['id'] ?? 0,
-      realItemNumber: map['realItemNumber'] ?? 0,
+      realItemNumber:
+          map['realItemNumber'] ?? 0,
+
+      // ข้อมูลอ้างอิง
       name: map['name'] ?? '',
       model: map['model'] ?? '',
       type: map['type'] ?? '',
@@ -114,9 +143,16 @@ class AmuletData {
       year: map['year'] ?? '',
       material: map['material'] ?? '',
       size: map['size'] ?? '',
-      frontDetail: map['frontDetail'] ?? '',
-      sideDetail: map['sideDetail'] ?? '',
-      backDetail: map['backDetail'] ?? '',
+
+      // ข้อมูลเก่า
+      frontDetail:
+          map['frontDetail'] ?? '',
+      sideDetail:
+          map['sideDetail'] ?? '',
+      backDetail:
+          map['backDetail'] ?? '',
+
+      // ข้อมูลสแกน
       scans: scanList
           .map(
             (scan) => ScanData.fromMap(
