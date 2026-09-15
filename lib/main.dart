@@ -2159,20 +2159,67 @@ Future<void> _runTemporaryScan({
   // START SELECTED SCAN
   // =====================================================
 
-  Future<void> _startSelectedScan(
-    String area,
-  ) async {
-    setState(() {
-      selectedArea = area;
-    });
+  Future<void> _pickFromPhone() async {
+  try {
+    final XFile? picked =
+        await picker.pickImage(
+      source: ImageSource.gallery,
+    );
 
-    if (realObjectMode) {
-      await _openCameraScanner();
-    } else {
-      await _pickFromPhone();
+    if (picked == null) {
+      return;
     }
-  }
 
+    // ใช้รูปจากแกลเลอรี่ชั่วคราวเท่านั้น
+    // ไม่บันทึกสำเนารูปเข้าแอป
+    //
+    // ขั้นต่อไปเราจะนำข้อมูลจากรูปนี้
+    // ไปประมวลผลใน RAM แล้วทิ้งข้อมูลภาพ
+
+    if (!mounted) return;
+
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('นำเข้ารูปสำเร็จ'),
+          content: const Text(
+            'ระบบได้รับรูปเพื่อใช้วิเคราะห์ชั่วคราว\n\n'
+            'ยังไม่มีการบันทึกรูปภาพเข้าแอป',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+              child: const Text('บันทึกข้อมูลการสแกน'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (save == true) {
+      await _saveScan('นำเข้าจากโทรศัพท์');
+    }
+  } catch (e) {
+    _showMessage(
+      'นำเข้ารูปไม่สำเร็จ: $e',
+    );
+  }
+}
   // =====================================================
   // SAVE SCAN DATA
   // =====================================================
