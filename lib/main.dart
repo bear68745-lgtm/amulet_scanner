@@ -404,36 +404,39 @@ class CreateDataPage extends StatefulWidget {
 
   @override
   State<CreateDataPage> createState() =>
-      _CreateDataPageState();
-}
-
-class _CreateDataPageState extends State<CreateDataPage> {
+      _CreateDataPageStattypeController_CreateDataPageState extends State<CreateDataPage> {
   final nameController = TextEditingController();
   final modelController = TextEditingController();
-  final typeController = TextEditingController();
+  final pimController = TextEditingController();
   final templeController = TextEditingController();
   final provinceController = TextEditingController();
   final yearController = TextEditingController();
   final materialController = TextEditingController();
   final sizeController = TextEditingController();
+  final List<String> amuletTypes = [
+  'เหรียญ',
+  'เหรียญหล่อ',
+  'พระสมเด็จ',
+  'รูปหล่อ',
+  'พระกริ่ง',
+  'พระปิดตา',
+  'พระเนื้อผง',
+  'พระเนื้อดิน',
+  'อื่น ๆ',
+];
 
-  final frontController = TextEditingController();
-  final sideController = TextEditingController();
-  final backController = TextEditingController();
-
-  @override
+String selectedType = 'เหรียญ';
+ @override
   void dispose() {
     nameController.dispose();
     modelController.dispose();
-    typeController.dispose();
+    pimController.dispose();
     templeController.dispose();
     provinceController.dispose();
     yearController.dispose();
     materialController.dispose();
     sizeController.dispose();
-    frontController.dispose();
-    sideController.dispose();
-    backController.dispose();
+    
     super.dispose();
   }
 
@@ -448,7 +451,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
         children: [
           _field('ชื่อพระ / เหรียญ', nameController),
           _field('รุ่น', modelController),
-          _field('พิมพ์', typeController),
+          _field('พิมพ์', pimController),
           _field('วัด / สำนัก', templeController),
           _field('จังหวัด', provinceController),
           _field('ปีสร้าง', yearController),
