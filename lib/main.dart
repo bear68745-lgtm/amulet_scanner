@@ -449,70 +449,43 @@ String selectedType = 'เหรียญ';
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _field('ชื่อพระ / เหรียญ', nameController),
-          _field('รุ่น', modelController),
-          _field('พิมพ์', pimController),
-          _field('วัด / สำนัก', templeController),
-          _field('จังหวัด', provinceController),
-          _field('ปีสร้าง', yearController),
-          _field('เนื้อ', materialController),
-          _field('ขนาด', sizeController),
+  _field('ชื่อพระ / เหรียญ', nameController),
+  _field('รุ่น', modelController),
 
-          const SizedBox(height: 10),
+  DropdownButtonFormField<String>(
+    value: selectedType,
+    decoration: const InputDecoration(
+      labelText: 'ชนิดพระ',
+      border: OutlineInputBorder(),
+    ),
+    items: amuletTypes.map((type) {
+      return DropdownMenuItem<String>(
+        value: type,
+        child: Text(type),
+      );
+    }).toList(),
+    onChanged: (value) {
+      if (value == null) return;
 
-          const Text(
-            'รายละเอียดองค์จริง',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+      setState(() {
+        selectedType = value;
+      });
+    },
+  ),
 
-          const SizedBox(height: 8),
+  const SizedBox(height: 10),
 
-          _field(
-            'รายละเอียดด้านหน้า',
-            frontController,
-            maxLines: 4,
-          ),
-          _field(
-            'รายละเอียดด้านข้าง',
-            sideController,
-            maxLines: 4,
-          ),
-          _field(
-            'รายละเอียดด้านหลัง',
-            backController,
-            maxLines: 4,
-          ),
+  _field('พิมพ์', pimController),
+  _field('วัด / สำนัก', templeController),
+  _field('จังหวัด', provinceController),
+  _field('ปีสร้าง', yearController),
+  _field('เนื้อ', materialController),
+  _field('ขนาด / มิติ', sizeController),
 
-          const SizedBox(height: 20),
-
-          const Text(
-            'การสแกน',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          const Text(
-            'สามารถบันทึกข้อมูลโดยไม่สแกนได้ '
-            'และกลับมาแก้ไขเพื่อสแกนเพิ่มภายหลัง',
-          ),
-
-          const SizedBox(height: 20),
-
-          SizedBox(
-            height: 55,
-            child: ElevatedButton.icon(
-              onPressed: _saveData,
-              icon: const Icon(Icons.save),
-              label: const Text(
-                'บันทึกข้อมูล',
-                style: TextStyle(fontSize: 18),
+  const SizedBox(height: 10),
+        
+         
+          
               ),
             ),
           ),
@@ -558,8 +531,7 @@ String selectedType = 'เหรียญ';
 
       nextNumber = maxNumber + 1;
     }
-
-    final newItem = AmuletData(
+final newItem = AmuletData(
       id: DateTime.now().millisecondsSinceEpoch,
       realItemNumber: nextNumber,
       name: nameController.text.trim(),
@@ -571,9 +543,10 @@ String selectedType = 'เหรียญ';
       material: materialController.text.trim(),
       size: sizeController.text.trim(),
       frontDetail: frontController.text.trim(),
-      sideDetail: sideController.text.trim(),
-      backDetail: backController.text.trim(),
-    );
+      sideDetail: sideController.text
+    .trim(),
+   
+  );
 
     items.add(newItem);
 
