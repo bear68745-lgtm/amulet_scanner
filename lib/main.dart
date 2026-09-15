@@ -559,7 +559,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
   }
 }
 
-// =====================================================
+ // =====================================================
 // SAVED LIST
 // =====================================================
 
@@ -596,105 +596,65 @@ class _SavedListPageState extends State<SavedListPage> {
     });
   }
 
-  int _sameModelCount(AmuletData item) {
-    final name = item.name.trim().toLowerCase();
-    final model = item.model.trim().toLowerCase();
-
-    if (name.isEmpty && model.isEmpty) {
-      return 0;
-    }
-
-    return items.where((other) {
-      return other.name.trim().toLowerCase() == name &&
-          other.model.trim().toLowerCase() == model;
-    }).length;
+  String _groupKey(AmuletData item) {
+    return '${item.name.trim().toLowerCase()}|||'
+        '${item.model.trim().toLowerCase()}';
   }
 
-  bool _matchesSearch(AmuletData item) {
+  bool _matchesSearchGroup(List<AmuletData> group) {
     final q = searchText.trim().toLowerCase();
 
     if (q.isEmpty) return true;
 
-    final text = [
-      item.realItemNumber,
-      item.name,
-      item.model,
-      item.type,
-      item.temple,
-      item.province,
-      item.year,
-      item.material,
-      item.size,
-    ].join(' ').toLowerCase();
+    for (final item in group) {
+      final text = [
+        item.realItemNumber,
+        item.name,
+        item.model,
+        item.type,
+        item.temple,
+        item.province,
+        item.year,
+        item.material,
+        item.size,
+      ].join(' ').toLowerCase();
 
-    return text.contains(q);
+      if (text.contains(q)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
-  Future<void> _deleteItem(AmuletData item) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('ลบข้อมูล'),
-          content: Text(
-            'ต้องการลบข้อมูลนี้หรือไม่?\n\n'
-            'องค์จริงลำดับที่ ${item.realItemNumber}\n'
-            '${item.name.isEmpty ? 'ยังไม่ได้ระบุชื่อ' : item.name}\n\n'
-            'ข้อมูลการสแกนขององค์นี้จะถูกลบด้วย',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-              },
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
-              child: const Text('ลบข้อมูล'),
-            ),
-          ],
-        );
-      },
-    );
+  Map<String, List<AmuletData>> _groupItems() {
+    final groups = <String, List<AmuletData>>{};
 
-    if (confirm != true) return;
+    for (final item in items) {
+      final key = _groupKey(item);
 
-    items.removeWhere(
-      (element) => element.id == item.id,
-    );
+      groups.putIfAbsent(key, () {
+        return <AmuletData>[];
+      });
 
-    await saveAllItems(items);
+      groups[key]!.add(item);
+    }
 
-    if (!mounted) return;
-
-    setState(() {});
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'ลบองค์จริงลำดับที่ '
-          '${item.realItemNumber} แล้ว',
-        ),
-      ),
-    );
+    return groups;
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredItems =
-        items.where(_matchesSearch).toList();
+    final groups = _groupItems();
+
+    final filteredGroups = groups.values
+        .where(_matchesSearchGroup)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'รายการข้อมูลที่บันทึก',
+          'รายการพระ / เหรียญ',
         ),
       ),
       body: Column(
@@ -728,7 +688,7 @@ class _SavedListPageState extends State<SavedListPage> {
           ),
 
           Expanded(
-            child: filteredItems.isEmpty
+            child: filteredGroups.isEmpty
                 ? Center(
                     child: Text(
                       items.isEmpty
@@ -746,13 +706,21 @@ class _SavedListPageState extends State<SavedListPage> {
                       12,
                       12,
                     ),
-                    itemCount: filteredItems.length,
+                    itemCount: filteredGroups.length,
                     itemBuilder: (context, index) {
-                      final item =
-                          filteredItems[index];
+                      final group =
+                          filteredGroups[index];
 
-                      final count =
-                          _sameModelCount(item);
+                      final first = group.first;
+
+                      final name = first.name.isEmpty
+                          ? 'ยังไม่ได้ระบุชื่อ'
+                          : first.name;
+
+                      final model =
+                          first.model.isEmpty
+                              ? 'ยังไม่ได้ระบุรุ่น'
+                              : first.model;
 
                       return Card(
                         margin:
@@ -762,61 +730,31 @@ class _SavedListPageState extends State<SavedListPage> {
                         child: ListTile(
                           leading: CircleAvatar(
                             child: Text(
-                              '${item.realItemNumber}',
+                              '${group.length}',
                             ),
                           ),
                           title: Text(
-                            item.name.isEmpty
-                                ? 'ยังไม่ได้ระบุชื่อ'
-                                : item.name,
+                            name,
+                            style: const TextStyle(
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
                           ),
-                          subtitle: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'องค์จริงลำดับที่ '
-                                '${item.realItemNumber}'
-                                '${item.model.isEmpty ? '' : ' • ${item.model}'}',
-                              ),
-                              if (count >= 5)
-                                Text(
-                                  '🏅 พื้นฐาน 5+ องค์ • '
-                                  '$count องค์',
-                                  style: const TextStyle(
-                                    fontWeight:
-                                        FontWeight.bold,
-                                  ),
-                                ),
-                            ],
+                          subtitle: Text(
+                            '$model\n'
+                            'มี ${group.length} องค์ตัวอย่าง',
                           ),
-                          isThreeLine: count >= 5,
-                          trailing: Row(
-                            mainAxisSize:
-                                MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'ลบข้อมูล',
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () {
-                                  _deleteItem(item);
-                                },
-                              ),
-                              const Icon(
-                                Icons.chevron_right,
-                              ),
-                            ],
+                          isThreeLine: true,
+                          trailing: const Icon(
+                            Icons.chevron_right,
                           ),
                           onTap: () async {
                             await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) =>
-                                    DetailPage(
-                                  item: item,
+                                    AmuletGroupPage(
+                                  group: group,
                                   cameras:
                                       widget.cameras,
                                 ),
@@ -834,8 +772,151 @@ class _SavedListPageState extends State<SavedListPage> {
       ),
     );
   }
-}
+}  
+// =====================================================
+// AMULET GROUP
+// =====================================================
 
+class AmuletGroupPage extends StatelessWidget {
+  final List<AmuletData> group;
+  final List<CameraDescription> cameras;
+
+  const AmuletGroupPage({
+    super.key,
+    required this.group,
+    required this.cameras,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final first = group.first;
+
+    final name = first.name.isEmpty
+        ? 'ยังไม่ได้ระบุชื่อ'
+        : first.name;
+
+    final model = first.model.isEmpty
+        ? 'ยังไม่ได้ระบุรุ่น'
+        : first.model;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(name),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'รุ่น: $model',
+                    style: const TextStyle(
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'องค์ตัวอย่างทั้งหมด '
+                    '${group.length} องค์',
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          const Text(
+            'องค์ตัวอย่าง',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          ...group.map(
+            (item) {
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Text(
+                      '${item.realItemNumber}',
+                    ),
+                  ),
+                  title: Text(
+                    'องค์ตัวอย่าง '
+                    '${item.realItemNumber}',
+                  ),
+                  subtitle: Text(
+                    item.type.isEmpty
+                        ? 'ยังไม่ได้ระบุพิมพ์'
+                        : 'พิมพ์: ${item.type}',
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                  ),
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DetailPage(
+                          item: item,
+                          cameras: cameras,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          SizedBox(
+            height: 55,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateDataPage(
+                      cameras: cameras,
+                    ),
+                  ),
+                );
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'เพิ่มองค์ตัวอย่าง',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 // =====================================================
 // DETAIL
 // =====================================================
