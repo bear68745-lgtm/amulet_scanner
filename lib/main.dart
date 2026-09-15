@@ -487,21 +487,14 @@ String selectedType = 'เหรียญ';
   _field('ปีสร้าง', yearController),
   _field('เนื้อ', materialController),
   _field('ขนาด / มิติ', sizeController),
-
-  const SizedBox(height: 10),
-        
-         
-          
-              ),
-            ),
-          ),
+const SizedBox(height: 10),
         ],
       ),
     );
   }
 
   Widget _field(
-    String label,
+    String label
     TextEditingController controller, {
     int maxLines = 1,
   }) {
