@@ -99,34 +99,33 @@ class AmuletData {
   }) : scans = scans ?? [];
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'realItemNumber': realItemNumber,
+  return {
+    'id': id,
+    'realItemNumber': realItemNumber,
 
-      // ข้อมูลอ้างอิง
-      'name': name,
-      'type': model,
-      'pim': pim,
-      'type': type,
-      'province': province,
-      'year': year,
-      'material': material,
-      'size': size,
+    // ข้อมูลอ้างอิง
+    'name': name,
+    'model': model,
+    'pim': pim,
+    'type': type,
+    'temple': temple,
+    'province': province,
+    'year': year,
+    'material': material,
+    'size': size,
 
-      // ข้อมูลเก่า
-      // ยังเก็บไว้เพื่อรองรับข้อมูลเดิม
-      'frontDetail': frontDetail,
-      'sideDetail': sideDetail,
-      'backDetail': backDetail,
+    // ข้อมูลเก่า
+    'frontDetail': frontDetail,
+    'sideDetail': sideDetail,
+    'backDetail': backDetail,
 
-      // ข้อมูลสแกน
-      'scans': scans
-          .map((scan) => scan.toMap())
-          .toList(),
-    };
-  }
-
-  factory AmuletData.fromMap(
+    // ข้อมูลสแกน
+    'scans': scans
+        .map((scan) => scan.toMap())
+        .toList(),
+     };
+    }
+   factory AmuletData.fromMap(
     Map<String, dynamic> map,
   ) {
     final scanList = map['scans'] as List? ?? [];
@@ -1042,9 +1041,7 @@ class _DetailPageState extends State<DetailPage> {
           _field('วัด / สำนัก', templeController),
           _field('จังหวัด', provinceController),
           _field('ปีสร้าง', yearController),
-          _field('เนื้อ', materialController),
-          _field('ขนาด', sizeController),
-
+          
           const SizedBox(height: 8),
 
           const Text(
