@@ -536,22 +536,18 @@ String selectedType = 'เหรียญ';
       nextNumber = maxNumber + 1;
     }
 final newItem = AmuletData(
-      id: DateTime.now().millisecondsSinceEpoch,
-      realItemNumber: nextNumber,
-      name: nameController.text.trim(),
-      model: modelController.text.trim(),
-       pim: pimController.text.trim(), 
-      type: typeController.text.trim(),
-      temple: templeController.text.trim(),
-      province: provinceController.text.trim(),
-      year: yearController.text.trim(),
-      material: materialController.text.trim(),
-      size: sizeController.text.trim(),
-      frontDetail: frontController.text.trim(),
-      sideDetail: sideController.text
-    .trim(),
-   
-  );
+  id: DateTime.now().millisecondsSinceEpoch,
+  realItemNumber: nextNumber,
+  name: nameController.text.trim(),
+  model: modelController.text.trim(),
+  pim: pimController.text.trim(),
+  type: selectedType,
+  temple: templeController.text.trim(),
+  province: provinceController.text.trim(),
+  year: yearController.text.trim(),
+  material: materialController.text.trim(),
+  size: sizeController.text.trim(),
+ );
 
     items.add(newItem);
 
