@@ -455,7 +455,7 @@ void dispose() {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-  _field('ชื่อพระ / เหรียญ', nameController),
+  _field('ช'พระรอด' nameController),
   _field('รุ่น', modelController),
 
   DropdownButtonFormField<String>(
@@ -482,10 +482,10 @@ void dispose() {
   const SizedBox(height: 8),
 
   _field('พิมพ์', pimController),
-  _field('วัด / สำนัก', templeController),
+  _field('วัด', templeController),
   _field('จังหวัด', provinceController),
   _field('ปีสร้าง', yearController),
-  'ปีสร้าง'SizedBox(height: 10),
+ const SizedBox(height: 10),
         ],
       ),
     );
