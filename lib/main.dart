@@ -50,8 +50,7 @@ class AmuletData {
 
   // ===============================
   // ข้อมูลอ้างอิงของรายการพระ
-  // ===========
- ====================
+  // ===============================
   String name;
   String model;
   String pim;
@@ -408,7 +407,10 @@ class CreateDataPage extends StatefulWidget {
 
   @override
   State<CreateDataPage> createState() =>
-      _CreateDataPageStattypeController_CreateDataPageState extends State<CreateDataPage> {
+    _CreateDataPageState();
+}
+
+class _CreateDataPageState extends State<CreateDataPage> {
   final nameController = TextEditingController();
   final modelController = TextEditingController();
   final pimController = TextEditingController();
