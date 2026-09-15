@@ -2154,15 +2154,31 @@ Future<void> _runTemporaryScan({
   }
 }
   
+// =====================================================
+// START SELECTED SCAN
+// =====================================================
 
-  // =====================================================
-  // START SELECTED SCAN
-  // =====================================================
+Future<void> _startSelectedScan(
+  String area,
+) async {
+  setState(() {
+    selectedArea = area;
+  });
 
-  Future<void> _pickFromPhone() async {
+  if (realObjectMode) {
+    await _openCameraScanner();
+  } else {
+    await _pickFromPhone();
+  }
+}
+
+// =====================================================
+// PICK FROM PHONE
+// =====================================================
+  
+ Future<void> _pickFromPhone() async {
   try {
-    final XFile? picked =
-        await picker.pickImage(
+    final XFile? picked = await picker.pickImage(
       source: ImageSource.gallery,
     );
 
@@ -2172,9 +2188,6 @@ Future<void> _runTemporaryScan({
 
     // ใช้รูปจากแกลเลอรี่ชั่วคราวเท่านั้น
     // ไม่บันทึกสำเนารูปเข้าแอป
-    //
-    // ขั้นต่อไปเราจะนำข้อมูลจากรูปนี้
-    // ไปประมวลผลใน RAM แล้วทิ้งข้อมูลภาพ
 
     if (!mounted) return;
 
@@ -2220,6 +2233,7 @@ Future<void> _runTemporaryScan({
     );
   }
 }
+
   // =====================================================
   // SAVE SCAN DATA
   // =====================================================
