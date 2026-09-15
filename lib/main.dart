@@ -676,7 +676,7 @@ class _SavedListPageState extends State<SavedListPage> {
             child: TextField(
               decoration: InputDecoration(
                 hintText:
-                    'ค้นหา ชื่อ รุ่น พิมพ์ วัด จังหวัด...',
+                    'ค้นหา ชื่อ รุ่น พิมพ์ วัด ...',
                 prefixIcon:
                     const Icon(Icons.search),
                 suffixIcon: searchText.isNotEmpty
@@ -1038,7 +1038,7 @@ class _DetailPageState extends State<DetailPage> {
           const SizedBox(height: 12),
 
           _field(
-            'ชื่อพระ / เหรียญ',
+            'ชื่อพระ ',
             nameController,
           ),
           _field('รุ่น', modelController),
@@ -1047,15 +1047,23 @@ class _DetailPageState extends State<DetailPage> {
           _field('จังหวัด', provinceController),
           _field('ปีสร้าง', yearController),
           
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
-          const Text(
-            'รายละเอียด',
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+SizedBox(
+  width: double.infinity,
+  height: 55,
+  child: ElevatedButton.icon(
+    onPressed: _saveData,
+    icon: const Icon(Icons.save),
+    label: const Text(
+      'บันทึกข้อมูล',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
 
           const SizedBox(height: 8),
 
