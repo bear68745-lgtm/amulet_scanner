@@ -985,7 +985,40 @@ class _DetailPageState extends State<DetailPage> {
     backController =
         TextEditingController(text: item.backDetail);
   }
+  Future<void> _saveData() async {
+    final items = await loadAllItems();
 
+    final index = items.indexWhere(
+      (item) => item.id == widget.item.id,
+    );
+
+    if (index == -1) return;
+
+    final oldItem = items[index];
+
+    items[index] = AmuletData(
+      id: oldItem.id,
+      realItemNumber: oldItem.realItemNumber,
+      name: nameController.text.trim(),
+      model: modelController.text.trim(),
+      pim: oldItem.pim,
+      type: typeController.text.trim(),
+      temple: templeController.text.trim(),
+      province: provinceController.text.trim(),
+      year: yearController.text.trim(),
+      scans: oldItem.scans,
+    );
+
+    await saveAllItems(items);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('บันทึกการแก้ไขเรียบร้อยแล้ว'),
+      ),
+    );
+  }
   @override
   void dispose() {
     nameController.dispose();
@@ -1051,7 +1084,7 @@ SizedBox(
     label: const Text(
       'บันทึกข้อมูล',
       style: TextStyle(
-        fontSize: 12,
+        fontSize: 15,
         fontWeight: FontWeight.bold,
       ),
     ),
