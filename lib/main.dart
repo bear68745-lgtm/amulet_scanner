@@ -435,17 +435,14 @@ class _CreateDataPageState extends State<CreateDataPage> {
 ];
 
 String selectedType = 'เหรียญ';
- @override
-  void dispose() {
-    nameController.dispose();
-    modelController.dispose();
-    pimController.dispose();
-    templeController.dispose();
-    provinceController.dispose();
-    yearController.dispose();
-    materialController.dispose();
-    sizeController.dispose();
-    
+@override
+void dispose() {
+  nameController.dispose();
+  modelController.dispose();
+  pimController.dispose();
+  templeController.dispose();
+  provinceController.dispose();
+  yearController.dispose(); 
     super.dispose();
   }
 
@@ -488,9 +485,7 @@ String selectedType = 'เหรียญ';
   _field('วัด / สำนัก', templeController),
   _field('จังหวัด', provinceController),
   _field('ปีสร้าง', yearController),
-  _field('เนื้อ', materialController),
-
-const SizedBox(height: 10),
+  'ปีสร้าง'izedBox(height: 10),
         ],
       ),
     );
@@ -543,8 +538,7 @@ final newItem = AmuletData(
   temple: templeController.text.trim(),
   province: provinceController.text.trim(),
   year: yearController.text.trim(),
-  material: materialController.text.trim(),
-  size: sizeController.text.trim(),
+  
  );
 
     items.add(newItem);
