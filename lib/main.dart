@@ -389,10 +389,7 @@ class HomePage extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// =====================================================
+  // =====================================================
 // CREATE DATA
 // =====================================================
 
@@ -406,7 +403,7 @@ class CreateDataPage extends StatefulWidget {
 
   @override
   State<CreateDataPage> createState() =>
-    _CreateDataPageState();
+      _CreateDataPageState();
 }
 
 class _CreateDataPageState extends State<CreateDataPage> {
@@ -416,33 +413,39 @@ class _CreateDataPageState extends State<CreateDataPage> {
   final templeController = TextEditingController();
   final provinceController = TextEditingController();
   final yearController = TextEditingController();
-  
- final List<String> amuletTypes = [
-  'เหรียญ',
-  'เหรียญหล่อ',
-  'พระสมเด็จ',
-  'รูปหล่อ',
-  'พระกริ่ง',
-  'พระปิดตา',
-  'พระปิดตาเนื้อโลหะ',
-  'พระเนื้อผง',
-  'พระเนื้อดิน',
-  'นางพญา',
-  'ผงสุพรรณ',
-  'พระรอด',
-  'พระซุ้มกอ',
-  'อื่น ๆ',
-];
+  final materialController = TextEditingController();
+  final sizeController = TextEditingController();
 
-String selectedType = 'เหรียญ';
-@override
-void dispose() {
-  nameController.dispose();
-  modelController.dispose();
-  pimController.dispose();
-  templeController.dispose();
-  provinceController.dispose();
-  yearController.dispose(); 
+  final List<String> amuletTypes = [
+    'เหรียญ',
+    'เหรียญหล่อ',
+    'พระสมเด็จ',
+    'รูปหล่อ',
+    'พระกริ่ง',
+    'พระปิดตา',
+    'พระปิดตาเนื้อโลหะ',
+    'พระเนื้อผง',
+    'พระเนื้อดิน',
+    'นางพญา',
+    'ผงสุพรรณ',
+    'พระรอด',
+    'พระซุ้มกอ',
+    'อื่น ๆ',
+  ];
+
+  String selectedType = 'เหรียญ';
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    modelController.dispose();
+    pimController.dispose();
+    templeController.dispose();
+    provinceController.dispose();
+    yearController.dispose();
+    materialController.dispose();
+    sizeController.dispose();
+
     super.dispose();
   }
 
@@ -452,40 +455,115 @@ void dispose() {
       appBar: AppBar(
         title: const Text('สร้าง / บันทึกข้อมูล'),
       ),
+
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-  _field('ชื่อพระ', nameController),
-  _field('รุ่น', modelController),
 
-  DropdownButtonFormField<String>(
-    value: selectedType,
-    decoration: const InputDecoration(
-      labelText: 'ชนิดพระ',
-      border: OutlineInputBorder(),
-    ),
-    items: amuletTypes.map((type) {
-      return DropdownMenuItem<String>(
-        value: type,
-        child: Text(type),
-      );
-    }).toList(),
-    onChanged: (value) {
-      if (value == null) return;
+          // ==========================================
+          // ข้อมูลพระ / เหรียญ
+          // ==========================================
 
-      setState(() {
-        selectedType = value;
-      });
-    },
-  ),
+          _field(
+            'ชื่อพระ',
+            nameController,
+          ),
 
-  const SizedBox(height: 8),
+          _field(
+            'รุ่น',
+            modelController,
+          ),
 
-  _field('พิมพ์', pimController),
-  _field('วัด', templeController),
-  _field('จังหวัด', provinceController),
-  _field('ปีสร้าง', yearController),
- const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            value: selectedType,
+            decoration: const InputDecoration(
+              labelText: 'ชนิดพระ',
+              border: OutlineInputBorder(),
+            ),
+            items: amuletTypes.map((type) {
+              return DropdownMenuItem<String>(
+                value: type,
+                child: Text(type),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value == null) return;
+
+              setState(() {
+                selectedType = value;
+              });
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          _field(
+            'พิมพ์',
+            pimController,
+          ),
+
+          _field(
+            'วัด',
+            templeController,
+          ),
+
+          _field(
+            'จังหวัด',
+            provinceController,
+          ),
+
+          _field(
+            'ปีสร้าง',
+            yearController,
+          ),
+
+          _field(
+            'เนื้อ',
+            materialController,
+          ),
+
+          _field(
+            'ขนาด / มิติ',
+            sizeController,
+          ),
+
+          const SizedBox(height: 10),
+
+          // ==========================================
+          // ปุ่มบันทึก
+          // ==========================================
+
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: _saveData,
+              icon: const Icon(
+                Icons.save,
+                size: 25,
+              ),
+              label: const Text(
+                'บันทึกข้อมูล',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          const Text(
+            'เมื่อบันทึกแล้ว ระบบจะกำหนดหมายเลข "องค์จริง" '
+            'ให้อัตโนมัติ',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+            ),
+          ),
+
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -509,61 +587,126 @@ void dispose() {
     );
   }
 
+  // =====================================================
+  // SAVE NEW DATA
+  // =====================================================
+
   Future<void> _saveData() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs =
+          await SharedPreferences.getInstance();
 
-    final items = await loadAllItems();
+      final items = await loadAllItems();
 
-    int nextNumber =
-        prefs.getInt('next_real_item_number') ?? 1;
+      // -----------------------------------------------
+      // หาเลของค์จริงถัดไป
+      // -----------------------------------------------
 
-    if (nextNumber <= 0) {
-      int maxNumber = 0;
+      int nextNumber =
+          prefs.getInt(
+                'next_real_item_number',
+              ) ??
+              1;
 
-      for (final item in items) {
-        if (item.realItemNumber > maxNumber) {
-          maxNumber = item.realItemNumber;
+      if (nextNumber <= 0) {
+        int maxNumber = 0;
+
+        for (final item in items) {
+          if (item.realItemNumber > maxNumber) {
+            maxNumber = item.realItemNumber;
+          }
         }
+
+        nextNumber = maxNumber + 1;
       }
 
-      nextNumber = maxNumber + 1;
-    }
-final newItem = AmuletData(
-  id: DateTime.now().millisecondsSinceEpoch,
-  realItemNumber: nextNumber,
-  name: nameController.text.trim(),
-  model: modelController.text.trim(),
-  pim: pimController.text.trim(),
-  type: selectedType,
-  temple: templeController.text.trim(),
-  province: provinceController.text.trim(),
-  year: yearController.text.trim(),
-  
- );
+      // -----------------------------------------------
+      // สร้างข้อมูลใหม่
+      // -----------------------------------------------
 
-    items.add(newItem);
+      final newItem = AmuletData(
+        id: DateTime.now()
+            .millisecondsSinceEpoch,
 
-    await saveAllItems(items);
+        realItemNumber: nextNumber,
 
-    await prefs.setInt(
-      'next_real_item_number',
-      nextNumber + 1,
-    );
+        name: nameController.text.trim(),
 
-    if (!mounted) return;
+        model: modelController.text.trim(),
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'บันทึกองค์จริงลำดับที่ $nextNumber เรียบร้อยแล้ว',
+        pim: pimController.text.trim(),
+
+        type: selectedType,
+
+        temple: templeController.text.trim(),
+
+        province: provinceController.text.trim(),
+
+        year: yearController.text.trim(),
+
+        material: materialController.text.trim(),
+
+        size: sizeController.text.trim(),
+
+        frontDetail: '',
+        sideDetail: '',
+        backDetail: '',
+
+        scans: [],
+      );
+
+      // -----------------------------------------------
+      // เพิ่มลงรายการ
+      // -----------------------------------------------
+
+      items.add(newItem);
+
+      await saveAllItems(items);
+
+      // -----------------------------------------------
+      // จำเลขถัดไป
+      // -----------------------------------------------
+
+      await prefs.setInt(
+        'next_real_item_number',
+        nextNumber + 1,
+      );
+
+      if (!mounted) return;
+
+      // -----------------------------------------------
+      // แจ้งผล
+      // -----------------------------------------------
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'บันทึกข้อมูลเรียบร้อย • องค์จริง $nextNumber',
+          ),
         ),
-      ),
-    );
+      );
 
-    Navigator.pop(context);
+      // -----------------------------------------------
+      // กลับหน้าก่อนหน้า
+      // -----------------------------------------------
+
+      Navigator.pop(context);
+
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'บันทึกข้อมูลไม่สำเร็จ: $e',
+          ),
+        ),
+      );
+    }
   }
 }
-
+  
+    
  // =====================================================
 // SAVED LIST
 // =====================================================
