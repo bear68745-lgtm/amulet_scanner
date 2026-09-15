@@ -416,8 +416,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
   final templeController = TextEditingController();
   final provinceController = TextEditingController();
   final yearController = TextEditingController();
-  final materialController = TextEditingController();
-  final sizeController = TextEditingController();
+  
  final List<String> amuletTypes = [
   'เหรียญ',
   'เหรียญหล่อ',
