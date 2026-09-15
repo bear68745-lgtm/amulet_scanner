@@ -485,7 +485,7 @@ void dispose() {
   _field('วัด / สำนัก', templeController),
   _field('จังหวัด', provinceController),
   _field('ปีสร้าง', yearController),
-  'ปีสร้าง'izedBox(height: 10),
+  'ปีสร้าง'SizedBox(height: 10),
         ],
       ),
     );
