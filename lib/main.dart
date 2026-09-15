@@ -418,15 +418,20 @@ class _CreateDataPageState extends State<CreateDataPage> {
   final yearController = TextEditingController();
   final materialController = TextEditingController();
   final sizeController = TextEditingController();
-  final List<String> amuletTypes = [
+ final List<String> amuletTypes = [
   'เหรียญ',
   'เหรียญหล่อ',
   'พระสมเด็จ',
   'รูปหล่อ',
   'พระกริ่ง',
   'พระปิดตา',
+  'พระปิดตาเนื้อโลหะ',
   'พระเนื้อผง',
   'พระเนื้อดิน',
+  'นางพญา',
+  'ผงสุพรรณ',
+  'พระรอด',
+  'พระซุ้มกอ',
   'อื่น ๆ',
 ];
 
@@ -478,14 +483,14 @@ String selectedType = 'เหรียญ';
     },
   ),
 
-  const SizedBox(height: 10),
+  const SizedBox(height: 8),
 
   _field('พิมพ์', pimController),
   _field('วัด / สำนัก', templeController),
   _field('จังหวัด', provinceController),
   _field('ปีสร้าง', yearController),
   _field('เนื้อ', materialController),
-  _field('ขนาด / มิติ', sizeController),
+
 const SizedBox(height: 10),
         ],
       ),
