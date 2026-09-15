@@ -540,6 +540,7 @@ final newItem = AmuletData(
       realItemNumber: nextNumber,
       name: nameController.text.trim(),
       model: modelController.text.trim(),
+       pim: pimController.text.trim(), 
       type: typeController.text.trim(),
       temple: templeController.text.trim(),
       province: provinceController.text.trim(),
