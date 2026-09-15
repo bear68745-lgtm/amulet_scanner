@@ -494,7 +494,7 @@ const SizedBox(height: 10),
   }
 
   Widget _field(
-    String label
+    String label,
     TextEditingController controller, {
     int maxLines = 1,
   }) {
