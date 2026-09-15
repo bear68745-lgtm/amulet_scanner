@@ -455,7 +455,7 @@ void dispose() {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-  _field('ช'พระรอด' nameController),
+  _field('ชื่อพระ', nameController),
   _field('รุ่น', modelController),
 
   DropdownButtonFormField<String>(
