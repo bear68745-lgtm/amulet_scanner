@@ -50,9 +50,11 @@ class AmuletData {
 
   // ===============================
   // ข้อมูลอ้างอิงของรายการพระ
-  // ===============================
+  // ===========
+ ====================
   String name;
   String model;
+  String pim;
   String type;
   String temple;
   String province;
@@ -79,8 +81,9 @@ class AmuletData {
     required this.realItemNumber,
 
     // ข้อมูลอ้างอิง
-    this.name = '',
-    this.model = '',
+   this.name = '',
+   this.model = '',
+    this.pim = '',
     this.type = '',
     this.temple = '',
     this.province = '',
@@ -103,9 +106,9 @@ class AmuletData {
 
       // ข้อมูลอ้างอิง
       'name': name,
-      'model': model,
+      'type': model,
+      'pim': pim,
       'type': type,
-      'temple': temple,
       'province': province,
       'year': year,
       'material': material,
@@ -135,15 +138,16 @@ class AmuletData {
           map['realItemNumber'] ?? 0,
 
       // ข้อมูลอ้างอิง
-      name: map['name'] ?? '',
-      model: map['model'] ?? '',
-      type: map['type'] ?? '',
-      temple: map['temple'] ?? '',
-      province: map['province'] ?? '',
-      year: map['year'] ?? '',
-      material: map['material'] ?? '',
-      size: map['size'] ?? '',
-
+      
+name: map['name'] ?? '',
+model: map['model'] ?? '',
+pim: map['pim'] ?? '',
+type: map['type'] ?? '',
+temple: map['temple'] ?? '',
+province: map['province'] ?? '',
+year: map['year'] ?? '',
+material: map['material'] ?? '',
+size: map['size'] ?? '',
       // ข้อมูลเก่า
       frontDetail:
           map['frontDetail'] ?? '',
