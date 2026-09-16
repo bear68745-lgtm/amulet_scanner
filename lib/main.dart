@@ -822,20 +822,22 @@ class _SavedListPageState extends State<SavedListPage> {
                             Icons.chevron_right,
                           ),
                           onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    AmuletGroupPage(
-                                  group: group,
-                                  cameras:
-                                      widget.cameras,
-                                ),
-                              ),
-                            );
+  final changed = await Navigator.push<bool>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => AmuletGroupPage(
+        group: group,
+        cameras: widget.cameras,
+      ),
+    ),
+  );
 
-                            await _loadData();
-                          },
+  if (!mounted) return;
+
+  if (changed == true) {
+    await _loadData();
+  }
+},
                         ),
                       );
                     },
