@@ -2621,15 +2621,16 @@ class _ScanPageState
                                   );
                                 },
                               );
-
-                              if (save == true) {
-                                Navigator.pop(
-                                  sheetContext,
-                                );
-
-                                await _saveScan(
-                                  'สแกนองค์จริง',
-                                );
+                     
+                     if (save == true) {
+                      await _saveScan(
+                        'สแกนองค์จริง',
+                               );
+                       if (sheetContext.mounted) {
+                         Navigator.pop(
+                           sheetContext,
+                               );
+                               }
                               }
                             },
                           ),
