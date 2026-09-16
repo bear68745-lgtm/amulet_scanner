@@ -2772,8 +2772,10 @@ class _ScanPageState extends State<ScanPage> {
               padding:
                   const EdgeInsets.all(16),
               child: Text(
-                'องค์อ้างอิงลำดับที่ '
-                 style: const TextStyle(
+              Text(
+           'องค์อ้างอิงลำดับที่ ',
+            style: const TextStyle(
+      
                   fontSize: 20,
                   fontWeight:
                       FontWeight.bold,
