@@ -412,7 +412,8 @@ class _CreateDataPageState extends State<CreateDataPage> {
     'ผงสุพรรณ',
     'พระรอด',
     'พระซุ้มกอ',
-    'อื่น ๆ',
+'พระขุนแผน',
+'อื่น ๆ',
   ];
 
   String selectedType = 'เหรียญ';
