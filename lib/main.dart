@@ -2767,22 +2767,7 @@ class _ScanPageState extends State<ScanPage> {
           // ITEM NUMBER
           // -------------------------------------------------
 
-          Card(
-            child: Padding(
-              padding:
-                  const EdgeInsets.all(16),
-              child: Text(
-              Text(
-           'องค์อ้างอิงลำดับที่ ',
-            style: const TextStyle(
-      
-                  fontSize: 20,
-                  fontWeight:
-                      FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
+          
 
           const SizedBox(height: 10),
 
