@@ -859,7 +859,224 @@ class _SavedListPageState extends State<SavedListPage> {
 // =====================================================
 // AMULET GROUP
 // =====================================================
+class EditDataPage extends StatefulWidget {
+  final AmuletData item;
 
+  const EditDataPage({
+    super.key,
+    required this.item,
+  });
+
+  @override
+  State<EditDataPage> createState() => _EditDataPageState();
+}
+
+class _EditDataPageState extends State<EditDataPage> {
+  late TextEditingController nameController;
+  late TextEditingController modelController;
+  late TextEditingController pimController;
+  late TextEditingController templeController;
+
+  String selectedType = '';
+
+  final List<String> types = [
+    'เหรียญ',
+    'เหรียญหล่อ',
+    'พระสมเด็จ',
+    'รูปหล่อ',
+    'พระกริ่ง',
+    'พระปิดตา',
+    'พระปิดตาเนื้อโลหะ',
+    'พระเนื้อผง',
+    'พระเนื้อดิน',
+    'นางพญา',
+    'ผงสุพรรณ',
+    'พระรอด',
+    'พระซุ้มกอ',
+    'พระขุนแผน',
+    'อื่น ๆ',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    nameController =
+        TextEditingController(text: widget.item.name);
+
+    modelController =
+        TextEditingController(text: widget.item.model);
+
+    pimController =
+        TextEditingController(text: widget.item.pim);
+
+    templeController =
+        TextEditingController(text: widget.item.temple);
+
+    selectedType = widget.item.type;
+
+    if (selectedType.isEmpty ||
+        !types.contains(selectedType)) {
+      selectedType = types.first;
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    modelController.dispose();
+    pimController.dispose();
+    templeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveEdit() async {
+    final allItems = await loadAllItems();
+
+    final index = allItems.indexWhere(
+      (savedItem) => savedItem.id == widget.item.id,
+    );
+
+    if (index == -1) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ไม่พบข้อมูลที่ต้องการแก้ไข'),
+        ),
+      );
+
+      return;
+    }
+
+    final oldItem = allItems[index];
+
+    final updatedItem = AmuletData(
+      id: oldItem.id,
+
+      // หมายเลของค์จริงเดิม ห้ามเปลี่ยน
+      realItemNumber: oldItem.realItemNumber,
+
+      name: nameController.text.trim(),
+      model: modelController.text.trim(),
+      pim: pimController.text.trim(),
+      type: selectedType,
+      temple: templeController.text.trim(),
+
+      // ข้อมูลเดิมเก็บไว้
+      province: oldItem.province,
+      year: oldItem.year,
+      material: oldItem.material,
+      size: oldItem.size,
+      frontDetail: oldItem.frontDetail,
+      sideDetail: oldItem.sideDetail,
+      backDetail: oldItem.backDetail,
+
+      // ข้อมูลสแกนเดิมต้องอยู่ครบ
+      scans: oldItem.scans,
+    );
+
+    allItems[index] = updatedItem;
+
+    await saveAllItems(allItems);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      Text(
+        'แก้ไของค์จริงลำดับที่ ${oldItem.realItemNumber} แล้ว',
+      ),
+    );
+
+    Navigator.pop(context, true);
+  }
+
+  Widget _field(
+    String label,
+    TextEditingController controller,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'แก้ไของค์จริง ${widget.item.realItemNumber}',
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'องค์จริงลำดับที่ ${widget.item.realItemNumber}',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          _field('ชื่อพระ', nameController),
+
+          _field('รุ่น', modelController),
+
+          DropdownButtonFormField<String>(
+            value: selectedType,
+            decoration: const InputDecoration(
+              labelText: 'ชนิดพระ',
+              border: OutlineInputBorder(),
+            ),
+            items: types.map((type) {
+              return DropdownMenuItem<String>(
+                value: type,
+                child: Text(type),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value == null) return;
+
+              setState(() {
+                selectedType = value;
+              });
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          _field('พิมพ์', pimController),
+
+          _field('วัด', templeController),
+
+          const SizedBox(height: 12),
+
+          SizedBox(
+            height: 55,
+            child: ElevatedButton.icon(
+              onPressed: _saveEdit,
+              icon: const Icon(Icons.save),
+              label: const Text(
+                'บันทึกการแก้ไข',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 class AmuletGroupPage extends StatefulWidget {
   final List<AmuletData> group;
   final List<CameraDescription> cameras;
@@ -1038,26 +1255,88 @@ class _AmuletGroupPageState extends State<AmuletGroupPage> {
                   // ==========================
                   // ปุ่มลบ
                   // ==========================
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'ลบข้อมูล',
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
-                        ),
-                        onPressed: () {
-                          _deleteItem(item);
-                        },
-                      ),
-                      const Icon(
-                        Icons.chevron_right,
-                      ),
-                    ],
-                  ),
+         trailing: Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    IconButton(
+      tooltip: 'แก้ไขข้อมูล',
+      icon: const Icon(
+        Icons.edit_outlined,
+      ),
+      onPressed: () async {
+        final changed = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EditDataPage(
+              item: item,
+            ),
+          ),
+        );
 
-                  onTap: () async {
+        if (changed == true) {
+          final allItems = await loadAllItems();
+
+          if (!mounted) return;
+
+          setState(() {
+            group = allItems
+                .where(
+                  (savedItem) =>
+                      savedItem.name == item.name &&
+                      savedItem.model == item.model,
+                )
+                .toList();
+          });
+        }
+      },
+    ),
+    IconButton(
+      tooltip: 'ลบข้อมูล',
+      icon: const Icon(
+        Icons.delete_outline,
+        color: Colors.red,
+      ),
+      onPressed: () {
+        _deleteItem(item);
+      },
+    ),
+    const Icon(
+      Icons.chevron_right,
+    ),
+  ],
+),
+        if (changed == true) {
+          final allItems = await loadAllItems();
+
+          if (!mounted) return;
+
+          setState(() {
+            group = allItems
+                .where(
+                  (savedItem) =>
+                      savedItem.name == item.name &&
+                      savedItem.model == item.model,
+                )
+                .toList();
+          });
+        }
+      },
+    ),
+    IconButton(
+      tooltip: 'ลบข้อมูล',
+      icon: const Icon(
+        Icons.delete_outline,
+        color: Colors.red,
+      ),
+      onPressed: () {
+        _deleteItem(item);
+      },
+    ),
+    const Icon(
+      Icons.chevron_right,
+    ),
+  ],
+),trailing           onTap: () async {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
