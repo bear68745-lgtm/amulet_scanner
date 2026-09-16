@@ -72,7 +72,7 @@ class AmuletData {
   String backDetail;
 
   // ===============================
-  // ข้อมูลการสแกนขององค์จริง
+  // ข้อมูลการสแกน
   // ===============================
   List<ScanData> scans;
 
@@ -805,11 +805,7 @@ class _SavedListPageState extends State<SavedListPage> {
                           bottom: 10,
                         ),
                         child: ListTile(
-                          leading: CircleAvatar(
-                            child: Text(
-                              '${group.length}',
-                            ),
-                          ),
+                          
                           title: Text(
                             name,
                             style: const TextStyle(
