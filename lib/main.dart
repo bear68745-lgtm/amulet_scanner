@@ -2642,9 +2642,9 @@ class _ScanPageState
           );
         },
       );
-
-      await cameraController
-          ?.dispose();
+      // ปิดกล้องหลังออกจากหน้าสแกนอย่างปลอดภัย
+      final controllerToDispose =
+          cameraController;
 
       cameraController = null;
 
@@ -2652,27 +2652,57 @@ class _ScanPageState
         setState(() {
           cameraReady = false;
           scanning = false;
+          temporaryFrameCount = 0;
         });
       }
+
+      if (controllerToDispose != null) {
+        try {
+          if (controllerToDispose
+              .value
+              .isStreamingImages) {
+            await controllerToDispose
+                .stopImageStream();
+          }
+        } catch (_) {}
+
+        try {
+          await controllerToDispose.dispose();
+        } catch (_) {}
+      }
     } catch (e) {
-      await cameraController
-          ?.dispose();
+      final controllerToDispose =
+          cameraController;
 
       cameraController = null;
+
+      if (controllerToDispose != null) {
+        try {
+          if (controllerToDispose
+              .value
+              .isStreamingImages) {
+            await controllerToDispose
+                .stopImageStream();
+          }
+        } catch (_) {}
+
+        try {
+          await controllerToDispose.dispose();
+        } catch (_) {}
+      }
 
       if (!mounted) return;
 
       setState(() {
         cameraReady = false;
         scanning = false;
+        temporaryFrameCount = 0;
       });
 
       _showMessage(
         'เปิดกล้องไม่สำเร็จ: $e',
       );
     }
-  }
-
   // =====================================================
   // TEMPORARY SCAN
   // =====================================================
