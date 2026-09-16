@@ -982,10 +982,12 @@ class _EditDataPageState extends State<EditDataPage> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      Text(
-        'แก้ไของค์จริงลำดับที่ ${oldItem.realItemNumber} แล้ว',
-      ),
-    );
+  SnackBar(
+    content: Text(
+      'แก้ไของค์จริงลำดับที่ ${oldItem.realItemNumber} แล้ว',
+    ),
+  ),
+);
 
     Navigator.pop(context, true);
   }
