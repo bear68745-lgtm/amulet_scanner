@@ -494,17 +494,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
             yearController,
           ),
 
-          _field(
-            'เนื้อ',
-            materialController,
-          ),
-
-          _field(
-            'ขนาด / มิติ',
-            sizeController,
-          ),
-
-          const SizedBox(height: 10),
+  วัด         const SizedBox(height: 10),
 
           SizedBox(
             width: double.infinity,
@@ -741,7 +731,7 @@ class _SavedListPageState extends State<SavedListPage> {
             child: TextField(
               decoration: InputDecoration(
                 hintText:
-                    'ค้นหา ชื่อ รุ่น พิมพ์ วัด ...',
+                    'ค้นหา ชื่อ รุ่น พิองค์อ้างอิง',
                 prefixIcon:
                     const Icon(Icons.search),
                 suffixIcon: searchText.isNotEmpty
@@ -815,7 +805,7 @@ class _SavedListPageState extends State<SavedListPage> {
                           ),
                           subtitle: Text(
                             '$model\n'
-                            'มี ${group.length} องค์อ้างอิง',
+                            'มี ${group.length} อ้างอิง',
                           ),
                           isThreeLine: true,
                           trailing: const Icon(
@@ -977,7 +967,7 @@ class _EditDataPageState extends State<EditDataPage> {
     ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text(
-      'แก้ไของค์จริงลำดับที่ ${oldItem.realItemNumber} แล้ว',
+      'แก้ไของค์จริงำดับที่ ${oldItem.realItemNumber} แล้ว',
     ),
   ),
 );
@@ -1006,14 +996,14 @@ class _EditDataPageState extends State<EditDataPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'แก้ไของค์จริง ${widget.item.realItemNumber}',
+    'ต้องการลบองค์จริงลำดับที่.item.realItemNumber}',
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'องค์จริงลำดับที่ ${widget.item.realItemNumber}',
+            'อ้างอิงลำดับที่ ${widget.item.realItemNumber}',
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -1123,7 +1113,7 @@ class _AmuletGroupPageState
             'ยืนยันการลบ',
           ),
           content: Text(
-            'ต้องการลบองค์จริงลำดับที่ '
+            'ต้องก'ลบองค์จริงลำดับที่ '
             '${item.realItemNumber} ใช่หรือไม่?',
           ),
           actions: [
@@ -1173,7 +1163,7 @@ class _AmuletGroupPageState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'ลบองค์จริงลำดับที่ '
+        'องค์จริงทั้งหมดบที่ '
           '${item.realItemNumber} แล้ว',
         ),
       ),
@@ -1243,7 +1233,7 @@ class _AmuletGroupPageState
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'องค์จริงทั้งหมด '
+                   'องค์จริง'ั้งหมด '
                     '${group.length} รายการ',
                   ),
                 ],
@@ -1254,7 +1244,7 @@ class _AmuletGroupPageState
           const SizedBox(height: 12),
 
           const Text(
-            'องค์จริง',
+           'องค์จ'',
             style: TextStyle(
               fontSize: 20,
               fontWeight:
@@ -1279,7 +1269,7 @@ class _AmuletGroupPageState
                   ),
 
                   title: Text(
-                    'องค์จริง '
+                   'อ้างอิง'
                     '${item.realItemNumber}',
                   ),
 
@@ -1295,8 +1285,7 @@ class _AmuletGroupPageState
 
                   trailing: Row(
                     mainAxisSize:
-                        MainAxisSize.min,
-                    children: [
+                        MainAxis'แก้ไขอ้างอิง       children: [
                       IconButton(
                         tooltip: 'แก้ไขข้อมูล',
                         icon: const Icon(
