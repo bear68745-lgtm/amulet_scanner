@@ -1061,10 +1061,10 @@ class _AmuletGroupPageState extends State<AmuletGroupPage> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => DetailPage(
+                        builder: (_) => ScanPage(
                           item: item,
                           cameras: widget.cameras,
-                        ),
+                       ),
                       ),
                     );
                   },
