@@ -526,14 +526,8 @@ class _CreateDataPageState extends State<CreateDataPage> {
 
           const SizedBox(height: 12),
 
-          const Text(
-            'เมื่อบันทึกแล้ว ระบบจะกำหนดหมายเลข "องค์อ้างอิง" '
-            'ให้อัตโนมัติ',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-            ),
-          ),
+          
+          
 
           const SizedBox(height: 20),
         ],
@@ -621,7 +615,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'บันทึกข้อมูลเรียบร้อย • องค์อ้างอิง $nextNumber',
+            'บันทึกข้อมูลเรียบร้อย',
           ),
         ),
       );
@@ -690,7 +684,7 @@ class _SavedListPageState extends State<SavedListPage> {
 
     for (final item in group) {
       final text = [
-        item.realItemNumber,
+    
         item.name,
         item.model,
         item.type,
@@ -2778,8 +2772,7 @@ class _ScanPageState extends State<ScanPage> {
                   const EdgeInsets.all(16),
               child: Text(
                 'องค์อ้างอิงลำดับที่ '
-                '${widget.item.realItemNumber}',
-                style: const TextStyle(
+                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight:
                       FontWeight.bold,
