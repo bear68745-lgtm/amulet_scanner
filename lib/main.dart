@@ -860,7 +860,7 @@ class _SavedListPageState extends State<SavedListPage> {
 // AMULET GROUP
 // =====================================================
 
-class AmuletGroupPage extends StatelessWidget {
+class AmuletGroupPage extends StatefulWidget {
   final List<AmuletData> group;
   final List<CameraDescription> cameras;
 
@@ -871,7 +871,91 @@ class AmuletGroupPage extends StatelessWidget {
   });
 
   @override
+  State<AmuletGroupPage> createState() =>
+      _AmuletGroupPageState();
+}
+
+class _AmuletGroupPageState extends State<AmuletGroupPage> {
+  late List<AmuletData> group;
+
+  @override
+  void initState() {
+    super.initState();
+    group = List<AmuletData>.from(widget.group);
+  }
+
+  Future<void> _deleteItem(AmuletData item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('ยืนยันการลบ'),
+          content: Text(
+            'ต้องการลบองค์จริงลำดับที่ '
+            '${item.realItemNumber} ใช่หรือไม่?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('ลบ'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    final allItems = await loadAllItems();
+
+    allItems.removeWhere(
+      (savedItem) => savedItem.id == item.id,
+    );
+
+    await saveAllItems(allItems);
+
+    if (!mounted) return;
+
+    setState(() {
+      group.removeWhere(
+        (groupItem) => groupItem.id == item.id,
+      );
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'ลบองค์จริงลำดับที่ '
+          '${item.realItemNumber} แล้ว',
+        ),
+      ),
+    );
+
+    // ถ้าลบองค์สุดท้ายของกลุ่ม
+    // ให้กลับไปหน้ารายการหลัก
+    if (group.isEmpty) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (group.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Text('ไม่พบข้อมูล'),
+        ),
+      );
+    }
+
     final first = group.first;
 
     final name = first.name.isEmpty
@@ -912,7 +996,7 @@ class AmuletGroupPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'องค์อ้างอิงทั้งหมด '
+                    'องค์จริงทั้งหมด '
                     '${group.length} รายการ',
                   ),
                 ],
@@ -923,7 +1007,7 @@ class AmuletGroupPage extends StatelessWidget {
           const SizedBox(height: 12),
 
           const Text(
-            'องค์อ้างอิง',
+            'องค์จริง',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -942,24 +1026,44 @@ class AmuletGroupPage extends StatelessWidget {
                     ),
                   ),
                   title: Text(
-                    'องค์อ้างอิง '
+                    'องค์จริง '
                     '${item.realItemNumber}',
                   ),
                   subtitle: Text(
                     item.type.isEmpty
-                        ? 'ยังไม่ได้ระบุพิมพ์'
-                        : 'พิมพ์: ${item.type}',
+                        ? 'ยังไม่ได้ระบุชนิดพระ'
+                        : 'ชนิดพระ: ${item.type}',
                   ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
+
+                  // ==========================
+                  // ปุ่มลบ
+                  // ==========================
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'ลบข้อมูล',
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                        onPressed: () {
+                          _deleteItem(item);
+                        },
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                      ),
+                    ],
                   ),
+
                   onTap: () async {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => DetailPage(
                           item: item,
-                          cameras: cameras,
+                          cameras: widget.cameras,
                         ),
                       ),
                     );
@@ -979,262 +1083,18 @@ class AmuletGroupPage extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => CreateDataPage(
-                      cameras: cameras,
-                    ),
-                  ),
-                );
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-              },
-              icon: const Icon(Icons.add),
-              label: const Text(
-                'เพิ่มองค์อ้างอิง',
-                style: TextStyle(fontSize: 18),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =====================================================
-// DETAIL
-// =====================================================
-
-class DetailPage extends StatefulWidget {
-  final AmuletData item;
-  final List<CameraDescription> cameras;
-
-  const DetailPage({
-    super.key,
-    required this.item,
-    required this.cameras,
-  });
-
-  @override
-  State<DetailPage> createState() =>
-      _DetailPageState();
-}
-
-class _DetailPageState extends State<DetailPage> {
-  late TextEditingController nameController;
-  late TextEditingController modelController;
-  late TextEditingController typeController;
-  late TextEditingController templeController;
-  late TextEditingController provinceController;
-  late TextEditingController yearController;
-  late TextEditingController materialController;
-  late TextEditingController sizeController;
-
-  late TextEditingController frontController;
-  late TextEditingController sideController;
-  late TextEditingController backController;
-
-  @override
-  void initState() {
-    super.initState();
-
-    final item = widget.item;
-
-    nameController =
-        TextEditingController(text: item.name);
-    modelController =
-        TextEditingController(text: item.model);
-    typeController =
-        TextEditingController(text: item.type);
-    templeController =
-        TextEditingController(text: item.temple);
-    provinceController =
-        TextEditingController(text: item.province);
-    yearController =
-        TextEditingController(text: item.year);
-    materialController =
-        TextEditingController(text: item.material);
-    sizeController =
-        TextEditingController(text: item.size);
-
-    frontController =
-        TextEditingController(text: item.frontDetail);
-    sideController =
-        TextEditingController(text: item.sideDetail);
-    backController =
-        TextEditingController(text: item.backDetail);
-  }
-
-  Future<void> _saveData() async {
-    final items = await loadAllItems();
-
-    final index = items.indexWhere(
-      (item) => item.id == widget.item.id,
-    );
-
-    if (index == -1) return;
-
-    final oldItem = items[index];
-
-    items[index] = AmuletData(
-      id: oldItem.id,
-      realItemNumber: oldItem.realItemNumber,
-      name: nameController.text.trim(),
-      model: modelController.text.trim(),
-      pim: oldItem.pim,
-      type: typeController.text.trim(),
-      temple: templeController.text.trim(),
-      province: provinceController.text.trim(),
-      year: yearController.text.trim(),
-      scans: oldItem.scans,
-    );
-
-    await saveAllItems(items);
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('บันทึกการแก้ไขเรียบร้อยแล้ว'),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    nameController.dispose();
-    modelController.dispose();
-    typeController.dispose();
-    templeController.dispose();
-    provinceController.dispose();
-    yearController.dispose();
-    materialController.dispose();
-    sizeController.dispose();
-    frontController.dispose();
-    sideController.dispose();
-    backController.dispose();
-
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'องค์อ้างอิง ${widget.item.realItemNumber}',
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'องค์อ้างอิงลำดับที่ '
-                '${widget.item.realItemNumber}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          _field(
-            'ชื่อพระ ',
-            nameController,
-          ),
-          _field('รุ่น', modelController),
-          _field('พิมพ์', typeController),
-          _field('วัด / สำนัก', templeController),
-          _field('จังหวัด', provinceController),
-          _field('ปีสร้าง', yearController),
-
-          const SizedBox(height: 10),
-
-          SizedBox(
-            width: double.infinity,
-            height: 55,
-            child: ElevatedButton.icon(
-              onPressed: _saveData,
-              icon: const Icon(Icons.save),
-              label: const Text(
-                'บันทึกข้อมูล',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          _field(
-            'รายละเอียดด้านหน้า',
-            frontController,
-            maxLines: 4,
-          ),
-          _field(
-            'รายละเอียดด้านข้าง',
-            sideController,
-            maxLines: 4,
-          ),
-          _field(
-            'รายละเอียดด้านหลัง',
-            backController,
-            maxLines: 4,
-          ),
-
-          const SizedBox(height: 10),
-
-          Card(
-            child: ListTile(
-              leading:
-                  const Icon(Icons.camera_alt),
-              title: const Text(
-                'สแกนเพิ่ม',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: Text(
-                widget.item.scans.isEmpty
-                    ? 'ยังไม่มีข้อมูลการสแกน'
-                    : 'มีข้อมูลการสแกน '
-                        '${widget.item.scans.length} รายการ',
-              ),
-              trailing:
-                  const Icon(Icons.chevron_right),
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ScanPage(
-                      item: widget.item,
                       cameras: widget.cameras,
                     ),
                   ),
                 );
 
-                setState(() {});
+                if (!context.mounted) return;
+
+                Navigator.pop(context);
               },
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          SizedBox(
-            height: 55,
-            child: ElevatedButton.icon(
-              onPressed: _saveChanges,
-              icon: const Icon(Icons.save),
+              icon: const Icon(Icons.add),
               label: const Text(
-                'บันทึกการแก้ไข',
+                'เพิ่มองค์จริง',
                 style: TextStyle(fontSize: 18),
               ),
             ),
@@ -1243,74 +1103,8 @@ class _DetailPageState extends State<DetailPage> {
       ),
     );
   }
-
-  Widget _field(
-    String label,
-    TextEditingController controller, {
-    int maxLines = 1,
-  }) {
-    return Padding(
-      padding:
-          const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _saveChanges() async {
-    final items = await loadAllItems();
-
-    final index = items.indexWhere(
-      (element) => element.id == widget.item.id,
-    );
-
-    if (index == -1) return;
-
-    final oldItem = items[index];
-
-    items[index] = AmuletData(
-      id: oldItem.id,
-      realItemNumber:
-          oldItem.realItemNumber,
-      name: nameController.text.trim(),
-      model: modelController.text.trim(),
-      type: typeController.text.trim(),
-      temple: templeController.text.trim(),
-      province: provinceController.text.trim(),
-      year: yearController.text.trim(),
-      material:
-          materialController.text.trim(),
-      size: sizeController.text.trim(),
-      frontDetail:
-          frontController.text.trim(),
-      sideDetail:
-          sideController.text.trim(),
-      backDetail:
-          backController.text.trim(),
-      scans: oldItem.scans,
-    );
-
-    await saveAllItems(items);
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'บันทึกการแก้ไขเรียบร้อยแล้ว',
-        ),
-      ),
-    );
-
-    Navigator.pop(context);
-  }
 }
+            
 
 // =====================================================
 // BACKUP / IMPORT
