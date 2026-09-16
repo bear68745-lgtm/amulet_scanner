@@ -494,7 +494,7 @@ class _CreateDataPageState extends State<CreateDataPage> {
             yearController,
           ),
 
-  วัด         const SizedBox(height: 10),
+          const SizedBox(height: 10),
 
           SizedBox(
             width: double.infinity,
@@ -731,9 +731,8 @@ class _SavedListPageState extends State<SavedListPage> {
             child: TextField(
               decoration: InputDecoration(
                 hintText:
-                    'ค้นหา ชื่อ รุ่น พิองค์อ้างอิง',
-                prefixIcon:
-                    const Icon(Icons.search),
+                    'ค้นหา ชื่อ รุ่น องค์อ้างอิง',
+                prefixIcon องค์อ้างอิง'         const Icon(Icons.search),
                 suffixIcon: searchText.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear),
@@ -967,7 +966,7 @@ class _EditDataPageState extends State<EditDataPage> {
     ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text(
-      'แก้ไของค์จริงำดับที่ ${oldItem.realItemNumber} แล้ว',
+      'แก้ไขอ้างอิงลำดับที่ ${oldItem.realItemNumber} แล้ว',
     ),
   ),
 );
@@ -996,7 +995,7 @@ class _EditDataPageState extends State<EditDataPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-    'ต้องการลบองค์จริงลำดับที่.item.realItemNumber}',
+    'ต้องการลบอ้างอิงลำดับที่.item.realItemNumber}',
         ),
       ),
       body: ListView(
@@ -1113,7 +1112,7 @@ class _AmuletGroupPageState
             'ยืนยันการลบ',
           ),
           content: Text(
-            'ต้องก'ลบองค์จริงลำดับที่ '
+            'ต้องก'ลบอ้างอิงลำดับที่ '
             '${item.realItemNumber} ใช่หรือไม่?',
           ),
           actions: [
@@ -1163,7 +1162,7 @@ class _AmuletGroupPageState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-        'องค์จริงทั้งหมดบที่ '
+        'อ้างอิงลำดับที่ '
           '${item.realItemNumber} แล้ว',
         ),
       ),
@@ -1205,7 +1204,7 @@ class _AmuletGroupPageState
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          // =================================================
+   'องค์จ''/=========================================
           // GROUP INFO
           // =================================================
 
@@ -1233,7 +1232,7 @@ class _AmuletGroupPageState
                   ),
                   const SizedBox(height: 6),
                   Text(
-                   'องค์จริง'ั้งหมด '
+                   'อ้างอิงทั้งหมด '
                     '${group.length} รายการ',
                   ),
                 ],
@@ -1244,7 +1243,7 @@ class _AmuletGroupPageState
           const SizedBox(height: 12),
 
           const Text(
-           'องค์จ'',
+           'อ้างอิง'',
             style: TextStyle(
               fontSize: 20,
               fontWeight:
@@ -1412,7 +1411,7 @@ class _AmuletGroupPageState
                 Icons.add,
               ),
               label: const Text(
-                'เพิ่มองค์จริง',
+                'เพิ่มอ้างอืง',
                 style: TextStyle(
                   fontSize: 18,
                 ),
@@ -1693,8 +1692,7 @@ class _BackupPageState extends State<BackupPage> {
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment:
+                child'เพิ่มองค์จริง'             crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
                     Text(
