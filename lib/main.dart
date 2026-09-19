@@ -58,13 +58,143 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage> {
   CameraController? controller;
-  bool ready=false;
+  bool ready = false;
+  bool scanning = false;
+  int frameCount = 0;
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     startCamera();
   }
+
+  Future<void> startCamera() async {
+    if (widget.cameras.isEmpty) return;
+
+    final camera = widget.cameras.firstWhere(
+      (c) => c.lensDirection == CameraLensDirection.back,
+      orElse: () => widget.cameras.first,
+    );
+
+    controller = CameraController(
+      camera,
+      ResolutionPreset.medium,
+      enableAudio: false,
+    );
+
+    await controller!.initialize();
+
+    if (!mounted) return;
+
+    setState(() => ready = true);
+
+    // รับภาพจากกล้องชั่วคราวในหน่วยความจำ
+    // ไม่สร้างไฟล์ และไม่บันทึกรูป
+    await controller!.startImageStream((CameraImage image) {
+      if (!scanning) return;
+
+      frameCount++;
+
+      if (frameCount % 10 == 0 && mounted) {
+        setState(() {});
+      }
+
+      // image ใช้ชั่วคราวสำหรับ AI ในขั้นต่อไป
+      // เมื่อ callback จบ ภาพนี้จะไม่ถูกบันทึก
+    });
+  }
+
+  void startScan() {
+    setState(() {
+      scanning = true;
+      frameCount = 0;
+    });
+  }
+
+  void stopScan() {
+    setState(() {
+      scanning = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!ready) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('สแกนพระ'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                CameraPreview(controller!),
+
+                if (scanning)
+                  Positioned(
+                    top: 15,
+                    left: 15,
+                    right: 15,
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      color: Colors.black54,
+                      child: Text(
+                        'กำลังรับภาพชั่วคราว\nเฟรม: $frameCount\n'
+                        'ยังไม่มีการบันทึกรูป',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                const Text(
+                  'ภาพจากกล้องจะใช้ชั่วคราวในหน่วยความจำ\n'
+                  'ไม่มีการสร้างไฟล์รูปพระ',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+
+                ElevatedButton.icon(
+                  icon: Icon(
+                    scanning ? Icons.stop : Icons.camera,
+                  ),
+                  label: Text(
+                    scanning ? 'หยุดสแกน' : 'เริ่มรับภาพ',
+                  ),
+                  onPressed: scanning ? stopScan : startScan,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
   Future<void> startCamera() async {
     if(widget.cameras.isEmpty)return;
