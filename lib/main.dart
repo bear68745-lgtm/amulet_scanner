@@ -5,6 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'scan_data.dart';
+String newId() => DateTime.now().microsecondsSinceEpoch.toString();
+
+String now() => DateTime.now().toIso8601String();
+
+List<T> mapList<T>(
+  dynamic v,
+  T Function(Map<String, dynamic>) f,
+) =>
+    v is List
+        ? v
+            .whereType<Map>()
+            .map((e) => f(Map<String, dynamic>.from(e)))
+            .toList()
+        : [];
 import 'models.dart';
 
 Future<void> main() async {
