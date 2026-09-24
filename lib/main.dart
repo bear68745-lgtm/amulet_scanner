@@ -1689,8 +1689,7 @@ class _ReferencePageState
 // REFERENCE EDIT / VIEW
 // =====================================================
 
-class ReferenceEditPage
-    extends StatefulWidget {
+class ReferenceEditPage extends StatefulWidget {
   final List<CameraDescription> cameras;
   final GroupData group;
   final ModelData model;
@@ -1715,19 +1714,273 @@ class ReferenceEditPage
 
 class _ReferenceEditPageState
     extends State<ReferenceEditPage> {
-  ScanResult? getScan(
-    String area,
-  ) {
+  final Map<String, bool> comparing = {};
+
+  final Map<String, List<AiTestResult>> results = {};
+
+  ScanResult? getScan(String area) {
     return firstWhereOrNull(
       widget.reference.scans,
       (s) => s.area == area,
     );
   }
 
+  // ===================================================
+  // COMPARE ONE AREA
+  // ===================================================
+
+  Future<void> compareArea(String area) async {
+    final scan = getScan(area);
+
+    if (scan == null ||
+        scan.details.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'ด้าน $area ยังไม่มีข้อมูลสำหรับเปรียบเทียบ',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (comparing[area] == true) return;
+
+    setState(() {
+      comparing[area] = true;
+    });
+
+    try {
+      // -----------------------------------------------
+      // 1. นำข้อมูลปัจจุบันเข้า AI Memory
+      // -----------------------------------------------
+
+      await Storage.learnFromScan(
+        groupId: widget.group.id,
+        modelId: widget.model.id,
+        typeId: widget.type.id,
+        printId: widget.print.id,
+        referenceId: widget.reference.id,
+        area: area,
+        content: scan.details,
+      );
+
+      // -----------------------------------------------
+      // 2. เปรียบเทียบกับ AI Memory เดิม
+      // -----------------------------------------------
+
+      final comparison =
+          await Storage.compareAiMemory(
+        groupId: widget.group.id,
+        modelId: widget.model.id,
+        typeId: widget.type.id,
+        printId: widget.print.id,
+        referenceId: widget.reference.id,
+        area: area,
+        currentContent: scan.details,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        results[area] = comparison;
+      });
+
+      // -----------------------------------------------
+      // 3. แสดงผลกรณีไม่มี Memory อื่น
+      // -----------------------------------------------
+
+      if (comparison.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'ด้าน $area ยังไม่มีองค์อ้างอิงอื่นให้เปรียบเทียบ',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'ไม่สามารถเปรียบเทียบได้: $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          comparing[area] = false;
+        });
+      }
+    }
+  }
+
+  // ===================================================
+  // RESULT CARD
+  // ===================================================
+
+  Widget resultCard(AiTestResult result) {
+    return Card(
+      margin: const EdgeInsets.only(
+        top: 8,
+        left: 8,
+        right: 8,
+        bottom: 4,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              'เปรียบเทียบกับข้อมูลอ้างอิง',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Memory ID: ${result.knowledgeId}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              result.result,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(result.reason),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===================================================
+  // AREA CARD
+  // ===================================================
+
+  Widget areaCard(String area) {
+    final scan = getScan(area);
+
+    final hasData = scan != null &&
+        scan.details.trim().isNotEmpty;
+
+    final isComparing =
+        comparing[area] == true;
+
+    final areaResults =
+        results[area] ?? [];
+
+    return Card(
+      margin: const EdgeInsets.only(
+        bottom: 10,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    area,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (hasData)
+                  OutlinedButton.icon(
+                    onPressed: isComparing
+                        ? null
+                        : () => compareArea(area),
+                    icon: isComparing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child:
+                                CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.compare_arrows,
+                          ),
+                    label: Text(
+                      isComparing
+                          ? 'กำลังเปรียบเทียบ'
+                          : 'เปรียบเทียบ',
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // -----------------------------------------
+            // SCAN DATA
+            // -----------------------------------------
+
+            if (!hasData)
+              const Text(
+                'ยังไม่มีข้อมูล',
+                style: TextStyle(
+                  color: Colors.grey,
+                ),
+              )
+            else
+              Text(
+                scan!.details,
+                style: const TextStyle(
+                  fontSize: 15,
+                ),
+              ),
+
+            // -----------------------------------------
+            // AI RESULT
+            // -----------------------------------------
+
+            if (areaResults.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Divider(),
+              Text(
+                'ผลจาก AI Memory '
+                '(${areaResults.length} รายการ)',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              ...areaResults.map(
+                (result) => resultCard(result),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===================================================
+  // BUILD
+  // ===================================================
+
   @override
   Widget build(BuildContext context) {
-    final areas =
-        scanAreasForType(
+    final areas = scanAreasForType(
       widget.type.name,
     );
 
@@ -1746,6 +1999,7 @@ class _ReferenceEditPageState
             '${widget.type.name} > '
             '${widget.print.name}',
           ),
+
           Expanded(
             child: ListView(
               padding:
@@ -1754,38 +2008,27 @@ class _ReferenceEditPageState
                 Text(
                   'องค์อ้างอิง #'
                   '${widget.reference.referenceNumber}',
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight:
                         FontWeight.bold,
                   ),
                 ),
-                const SizedBox(
-                  height: 10,
+
+                const SizedBox(height: 6),
+
+                const Text(
+                  'ข้อมูลจากการสแกนสามารถนำมาเปรียบเทียบกับ '
+                  'AI Memory ขององค์อ้างอิงอื่นในพิมพ์เดียวกันได้',
+                  style: TextStyle(
+                    color: Colors.grey,
+                  ),
                 ),
+
+                const SizedBox(height: 12),
+
                 ...areas.map(
-                  (area) {
-                    final s =
-                        getScan(area);
-
-                    final has = s != null &&
-                        s.details
-                            .trim()
-                            .isNotEmpty;
-
-                    return Card(
-                      child: ListTile(
-                        title:
-                            Text(area),
-                        subtitle: Text(
-                          has
-                              ? s!.details
-                              : 'ยังไม่มีข้อมูล',
-                        ),
-                      ),
-                    );
-                  },
+                  (area) => areaCard(area),
                 ),
               ],
             ),
@@ -1795,3 +2038,4 @@ class _ReferenceEditPageState
     );
   }
 }
+        
