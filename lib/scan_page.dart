@@ -596,6 +596,10 @@ class _AiVisionPageState
   @override
   void initState() {
     super.initState();
+   ai.analyzeImage(
+  area: widget.area,
+  imagePath: widget.imageFile.path,
+); 
 
     // -----------------------------------------------
     // สร้างช่องข้อมูลตาม aiHeads
