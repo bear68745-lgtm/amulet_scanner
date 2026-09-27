@@ -28,7 +28,7 @@ T? firstWhereOrNull<T>(
 // =====================================================
 
 class ScanPage extends StatelessWidget {
-  final List<CameraDescription> cameras;
+final List<CameraDescription> cameras;
   final String area;
 
   final GroupData group;
@@ -41,7 +41,7 @@ class ScanPage extends StatelessWidget {
     super.key,
     required this.cameras,
     required this.area,
-    required this.group,
+    requirefinals.group,
     required this.model,
     required this.type,
     required this.print,
@@ -583,6 +583,7 @@ class AiVisionPage extends StatefulWidget {
 
 class _AiVisionPageState
     extends State<AiVisionPage> {
+    final AiEngine ai = const AiEngine();
   final Map<String, TextEditingController>
       controllers = {};
 
