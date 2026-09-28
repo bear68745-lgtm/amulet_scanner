@@ -1307,7 +1307,7 @@ class _PrintPageState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.type.name),
+'ดูข้อมูล'  title: Text(widget.type.name),
       ),
       floatingActionButton:
           FloatingActionButton.extended(
@@ -1642,7 +1642,7 @@ class _ReferencePageState
                                   ),
                                   label:
                                       const Text(
-                                    'ดูข้อมูล',
+                                'แก้ไข',
                                   ),
                                 ),
                                 const SizedBox(
