@@ -15,7 +15,7 @@
 // =====================================================
 
 import '../ai_engine.dart';
-import 'core_result.dart';
+import 'core/core_result.dart';
 
 class CoreEngine {
   const CoreEngine();
