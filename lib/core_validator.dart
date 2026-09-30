@@ -8,7 +8,7 @@
 // ไม่บันทึกรูปภาพ
 // =====================================================
 
-import 'core_result.dart';
+import 'core/core_result.dart';
 
 class CoreValidationResult {
   final bool isValid;
