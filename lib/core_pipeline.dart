@@ -15,6 +15,8 @@
 //     ↓
 // ReferenceData
 //
+// รองรับการรับ CoreResult ที่ผ่านการแก้ไขแล้ว
+//
 // ยังไม่บันทึกลง Storage
 // ไม่เก็บไฟล์รูปภาพ
 // ไม่ตัดสินแท้ / เก๊
@@ -43,7 +45,9 @@ class CorePipeline {
   const CorePipeline();
 
   // ===================================================
-  // ประมวลผล ScanResult → ReferenceData
+  // ประมวลผลจาก ScanResult
+  // ===================================================
+  // ใช้เมื่อข้อมูลเริ่มต้นมาจากการสแกนหลายด้าน
   // ===================================================
 
   CorePipelineResult process({
@@ -60,25 +64,60 @@ class CorePipeline {
     String sourceName = '',
     String sourceUrl = '',
   }) {
-    // -----------------------------------------------
-    // 1. รวมข้อมูลจาก ScanResult
-    // -----------------------------------------------
-
     const engine = CoreEngine();
 
     final coreResult = engine.fromScans(scans);
 
-    // -----------------------------------------------
-    // 2. ตรวจความครบถ้วน
-    // -----------------------------------------------
+    return processCoreResult(
+      coreResult: coreResult,
+      id: id,
+      referenceNumber: referenceNumber,
+      createdAt: createdAt,
+      width: width,
+      height: height,
+      thickness: thickness,
+      unit: unit,
+      sourceName: sourceName,
+      sourceUrl: sourceUrl,
+    );
+  }
+
+  // ===================================================
+  // ประมวลผลจาก CoreResult โดยตรง
+  // ===================================================
+  // ใช้หลังจาก AI / ผู้ใช้ตรวจสอบและแก้ไขข้อมูลแล้ว
+  //
+  // ข้อมูลใน CoreResult จะถูกนำไปตรวจสอบ
+  // และส่งต่อให้ ReferenceData โดยไม่หายไป
+  // ===================================================
+
+  CorePipelineResult processCoreResult({
+    required CoreResult coreResult,
+    required String id,
+    required int referenceNumber,
+    required String createdAt,
+
+    double width = 0.0,
+    double height = 0.0,
+    double thickness = 0.0,
+    String unit = 'mm',
+
+    String sourceName = '',
+    String sourceUrl = '',
+  }) {
+    // =================================================
+    // Validator
+    // =================================================
 
     const validator = CoreValidator();
 
-    final validation = validator.validate(coreResult);
+    final validation = validator.validate(
+      coreResult,
+    );
 
-    // -----------------------------------------------
-    // 3. แปลงเป็น ReferenceData
-    // -----------------------------------------------
+    // =================================================
+    // Mapper
+    // =================================================
 
     const mapper = CoreReferenceMapper();
 
@@ -95,9 +134,9 @@ class CorePipeline {
       sourceUrl: sourceUrl,
     );
 
-    // -----------------------------------------------
-    // 4. ส่งผลกลับ
-    // -----------------------------------------------
+    // =================================================
+    // ผลลัพธ์
+    // =================================================
 
     return CorePipelineResult(
       coreResult: coreResult,
