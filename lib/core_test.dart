@@ -1,9 +1,11 @@
 // =====================================================
 // CORE TEST
 // =====================================================
-// ทดสอบการไหลของข้อมูล Core
+// ทดสอบ CorePipeline
 //
 // ScanResult
+//     ↓
+// CorePipeline
 //     ↓
 // CoreEngine
 //     ↓
@@ -22,24 +24,17 @@
 // ไม่ตัดสินแท้ / เก๊
 // =====================================================
 
-import 'core_engine.dart';
-import 'core/core_reference_mapper.dart';
-import 'core/core_result.dart';
-import 'core_validator.dart';
+import 'core_pipeline.dart';
 import 'models.dart';
 import 'scan_data.dart';
 
 class CoreTest {
   const CoreTest();
 
-  // ===================================================
-  // ทดสอบ Core ด้วยข้อมูลจำลอง
-  // ===================================================
-
   CoreTestReport run() {
-    // -------------------------------------------------
-    // 1. สร้างข้อมูล ScanResult จำลอง
-    // -------------------------------------------------
+    // ===================================================
+    // ข้อมูล ScanResult จำลอง
+    // ===================================================
 
     final scans = [
       ScanResult(
@@ -60,45 +55,17 @@ class CoreTest {
       ),
     ];
 
-    // -------------------------------------------------
-    // 2. ส่งเข้า CoreEngine
-    // -------------------------------------------------
+    // ===================================================
+    // ใช้ CorePipeline ตัวจริง
+    // ===================================================
 
-    const engine = CoreEngine();
+    const pipeline = CorePipeline();
 
-    final coreResult = engine.fromScans(scans);
-
-    // -------------------------------------------------
-    // 3. เติมข้อมูลทั่วไปสำหรับทดสอบ
-    // -------------------------------------------------
-
-    coreResult.printShape = 'พิมพ์ทรงตัวอย่าง';
-
-    coreResult.material = 'ลักษณะเนื้อตัวอย่าง';
-
-    coreResult.visibleMarks = 'จุดสังเกตตัวอย่าง';
-
-    coreResult.unreadable = 'ไม่มีข้อมูลที่อ่านไม่ได้';
-
-    // -------------------------------------------------
-    // 4. ตรวจข้อมูลด้วย CoreValidator
-    // -------------------------------------------------
-
-    const validator = CoreValidator();
-
-    final validation = validator.validate(coreResult);
-
-    // -------------------------------------------------
-    // 5. แปลงเป็น ReferenceData
-    // -------------------------------------------------
-
-    const mapper = CoreReferenceMapper();
-
-    final reference = mapper.toReferenceData(
-      result: coreResult,
+    final result = pipeline.process(
+      scans: scans,
       id: 'TEST-001',
       referenceNumber: 1,
-      createdAt: DateTime.now().toIso8601String(),
+      createdAt: '2026-09-30T00:00:00.000Z',
       width: 30.0,
       height: 40.0,
       thickness: 2.5,
@@ -107,25 +74,37 @@ class CoreTest {
       sourceUrl: '',
     );
 
-    // -------------------------------------------------
-    // 6. ส่งผลการทดสอบกลับ
-    // -------------------------------------------------
+    // ===================================================
+    // เติมข้อมูลที่เป็นข้อมูลจาก AI / การอ่านเพิ่มเติม
+    // ===================================================
+    //
+    // CorePipeline ตอนนี้รับข้อมูล ScanResult
+    // เป็นหลัก ส่วนข้อมูลเหล่านี้จำลองการเติมข้อมูล
+    // ก่อนเข้าสู่ขั้น Reference
+    //
+    // ไม่ใช่การตัดสินแท้ / เก๊
+    // ===================================================
+
+    result.coreResult.printShape = 'พิมพ์ทรงตัวอย่าง';
+    result.coreResult.material = 'ลักษณะเนื้อตัวอย่าง';
+    result.coreResult.visibleMarks = 'จุดสังเกตตัวอย่าง';
+    result.coreResult.unreadable = 'ไม่มีข้อมูลที่อ่านไม่ได้';
 
     return CoreTestReport(
-      coreResult: coreResult,
-      validation: validation,
-      reference: reference,
+      coreResult: result.coreResult,
+      validation: result.validation,
+      reference: result.reference,
     );
   }
 }
 
 // =====================================================
-// ผลการทดสอบ
+// CORE TEST REPORT
 // =====================================================
 
 class CoreTestReport {
-  final CoreResult coreResult;
-  final CoreValidationResult validation;
+  final dynamic coreResult;
+  final dynamic validation;
   final ReferenceData reference;
 
   const CoreTestReport({
