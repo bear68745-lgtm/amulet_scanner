@@ -2,9 +2,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../ai_engine.dart';
 import '../core_pipeline.dart';
-import '../core/core_result.dart';
 import '../models.dart';
 import '../scan_data.dart';
 
@@ -494,7 +492,21 @@ class _CameraScanPageState
 }
 
 // =====================================================
-// AI VISION / SCAN DETAIL PAGE
+// SCAN DETAIL PAGE
+// =====================================================
+// ตอนนี้ยังไม่มี AI
+//
+// รูปภาพ
+//    ↓
+// กด "สแกนภาพ"
+//    ↓
+// ScanResult
+//    ↓
+// CorePipeline
+//    ↓
+// CoreResult / ReferenceData
+//
+// AI สามารถนำมาเชื่อมภายหลังได้
 // =====================================================
 
 class AiVisionPage extends StatefulWidget {
@@ -525,14 +537,15 @@ class AiVisionPage extends StatefulWidget {
 
 class _AiVisionPageState
     extends State<AiVisionPage> {
-  final AiEngine ai = const AiEngine();
-
   final Map<String, TextEditingController>
       controllers = {};
 
   bool scanning = false;
   bool scanned = false;
+  bool coreReceived = false;
   bool saving = false;
+
+  CorePipelineResult? pipelineResult;
 
   // =================================================
   // INIT
@@ -555,19 +568,18 @@ class _AiVisionPageState
     if (old != null) {
       _loadOldData(old.details);
     }
-
-    // -----------------------------------------------
-    // สำคัญ:
-    // ยังไม่เรียก AI อัตโนมัติ
-    // ต้องกดปุ่ม "สแกนภาพ" ก่อน
-    // -----------------------------------------------
   }
 
   // =================================================
-  // ANALYZE IMAGE
+  // SCAN
+  // =================================================
+  // ไม่มี AI
+  //
+  // สร้าง ScanResult จากพื้นที่ที่กำลังสแกน
+  // แล้วส่งเข้า CorePipeline โดยตรง
   // =================================================
 
-  Future<void> _analyzeImage() async {
+  Future<void> _scanImage() async {
     if (scanning) {
       return;
     }
@@ -575,92 +587,69 @@ class _AiVisionPageState
     setState(() {
       scanning = true;
       scanned = false;
+      coreReceived = false;
+      pipelineResult = null;
     });
 
     try {
-      final result = await ai.analyzeImage(
+      final scan = ScanResult(
         area: widget.area,
-        imagePath: widget.imageFile.path,
+        details: '',
+      );
+
+      const pipeline = CorePipeline();
+
+      final result = pipeline.process(
+        scans: [
+          scan,
+        ],
+        id: widget.reference.id,
+        referenceNumber:
+            widget.reference.referenceNumber,
+        createdAt:
+            widget.reference.createdAt,
+        width: widget.reference.width,
+        height: widget.reference.height,
+        thickness:
+            widget.reference.thickness,
+        unit: widget.reference.unit,
+        sourceName:
+            widget.reference.sourceName,
+        sourceUrl:
+            widget.reference.sourceUrl,
       );
 
       if (!mounted) {
         return;
       }
 
-      final values = <String, String>{
-        'พิมพ์ทรง': result.printShape,
-        'องค์ประกอบ': result.composition,
-        'ลวดลาย': result.patterns,
-        'ตำหนิที่มองเห็น': result.visibleMarks,
-        'ผิว': result.surface,
-        'ลักษณะเนื้อที่มองเห็น':
-            result.material,
-        'ขอบ/ด้านข้าง': result.edge,
-        'จุดสังเกต': result.observation,
-        'รายละเอียดอื่น': result.otherDetails,
-        'สิ่งที่อ่านไม่ได้': result.unreadable,
-      };
+      setState(() {
+        pipelineResult = result;
+        scanned = true;
+        coreReceived = true;
+      });
 
-      bool changed = false;
-      bool hasAiData = false;
-
-      for (final entry in values.entries) {
-        final controller =
-            controllers[entry.key];
-
-        if (controller == null) {
-          continue;
-        }
-
-        if (entry.value.trim().isNotEmpty) {
-          hasAiData = true;
-        }
-
-        if (controller.text.trim().isEmpty &&
-            entry.value.trim().isNotEmpty) {
-          controller.text = entry.value;
-          changed = true;
-        }
-      }
-
-      scanned = true;
-
-      if (changed) {
-        setState(() {});
-      } else {
-        setState(() {});
-      }
-
-      if (!hasAiData) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-          const SnackBar(
-            content: Text(
-              'สแกนแล้ว แต่ยังไม่มี AI วิเคราะห์ภาพจริงในระบบ',
-            ),
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'สแกนแล้ว และ Core รับ ScanResult แล้ว',
           ),
-        );
-      } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
-          const SnackBar(
-            content: Text(
-              'สแกนภาพเสร็จแล้ว',
-            ),
-          ),
-        );
-      }
+        ),
+      );
     } catch (e) {
       if (mounted) {
         setState(() {
           scanned = false;
+          coreReceived = false;
+          pipelineResult = null;
         });
 
         ScaffoldMessenger.of(context)
             .showSnackBar(
           SnackBar(
             content: Text(
-              'ไม่สามารถวิเคราะห์ภาพได้: $e',
+              'ไม่สามารถส่งข้อมูลเข้า Core ได้: $e',
             ),
           ),
         );
@@ -772,84 +761,17 @@ class _AiVisionPageState
     });
 
     try {
-      final coreResult = CoreResult(
+      final scan = ScanResult(
         area: widget.area,
+        details: details,
       );
-
-      for (final head in aiHeads) {
-        final value =
-            controllers[head]!.text.trim();
-
-        if (value.isEmpty) {
-          continue;
-        }
-
-        switch (head) {
-          case 'พิมพ์ทรง':
-            coreResult.printShape = value;
-            break;
-
-          case 'องค์ประกอบ':
-            coreResult.composition = value;
-            break;
-
-          case 'ลวดลาย':
-            coreResult.pattern = value;
-            break;
-
-          case 'ตำหนิที่มองเห็น':
-            coreResult.visibleMarks = value;
-            break;
-
-          case 'ผิว':
-            coreResult.surface = value;
-            break;
-
-          case 'ลักษณะเนื้อที่มองเห็น':
-            coreResult.material = value;
-            break;
-
-          case 'ขอบ/ด้านข้าง':
-            coreResult.edge = value;
-            break;
-
-          case 'จุดสังเกต':
-            coreResult.observation = value;
-            break;
-
-          case 'รายละเอียดอื่น':
-            coreResult.other = value;
-            break;
-
-          case 'สิ่งที่อ่านไม่ได้':
-            coreResult.unreadable = value;
-            break;
-        }
-      }
-
-      switch (widget.area) {
-        case 'ด้านหน้า':
-          coreResult.frontDetails = details;
-          break;
-
-        case 'ด้านหลัง':
-          coreResult.backDetails = details;
-          break;
-
-        case 'ด้านข้าง':
-          coreResult.edgeDetails = details;
-          break;
-
-        case 'ก้นพระ':
-          coreResult.bottomDetails = details;
-          break;
-      }
 
       const pipeline = CorePipeline();
 
-      final pipelineResult =
-          pipeline.processCoreResult(
-        coreResult: coreResult,
+      final result = pipeline.process(
+        scans: [
+          scan,
+        ],
         id: widget.reference.id,
         referenceNumber:
             widget.reference.referenceNumber,
@@ -867,38 +789,33 @@ class _AiVisionPageState
       );
 
       widget.reference.frontDetails =
-          pipelineResult.reference.frontDetails;
+          result.reference.frontDetails;
 
       widget.reference.backDetails =
-          pipelineResult.reference.backDetails;
+          result.reference.backDetails;
 
       widget.reference.edgeDetails =
-          pipelineResult.reference.edgeDetails;
+          result.reference.edgeDetails;
 
       widget.reference.bottomDetails =
-          pipelineResult.reference.bottomDetails;
+          result.reference.bottomDetails;
 
       widget.reference.surfaceDetails =
-          pipelineResult.reference.surfaceDetails;
+          result.reference.surfaceDetails;
 
       widget.reference.shapeDetails =
-          pipelineResult.reference.shapeDetails;
+          result.reference.shapeDetails;
 
       widget.reference.materialDetails =
-          pipelineResult.reference.materialDetails;
+          result.reference.materialDetails;
 
       widget.reference.distinctivePoints =
-          pipelineResult.reference.distinctivePoints;
+          result.reference.distinctivePoints;
 
       widget.reference.defectPoints =
-          pipelineResult.reference.defectPoints;
+          result.reference.defectPoints;
 
       widget.reference.calculateRatio();
-
-      final result = ScanResult(
-        area: widget.area,
-        details: details,
-      );
 
       if (!mounted) {
         return;
@@ -906,7 +823,7 @@ class _AiVisionPageState
 
       Navigator.pop(
         context,
-        result,
+        scan,
       );
     } catch (e) {
       if (mounted) {
@@ -947,6 +864,10 @@ class _AiVisionPageState
 
   @override
   Widget build(BuildContext context) {
+    final warnings =
+        pipelineResult?.validation.warnings ??
+            <String>[];
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -1018,7 +939,7 @@ class _AiVisionPageState
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed:
-                  scanning ? null : _analyzeImage,
+                  scanning ? null : _scanImage,
               icon: scanning
                   ? const SizedBox(
                       width: 20,
@@ -1034,9 +955,9 @@ class _AiVisionPageState
                     ),
               label: Text(
                 scanning
-                    ? 'กำลังสแกนภาพ...'
+                    ? 'กำลังส่งข้อมูลเข้า Core...'
                     : scanned
-                        ? 'สแกนภาพอีกครั้ง'
+                        ? 'สแกนอีกครั้ง'
                         : 'สแกนภาพ',
               ),
             ),
@@ -1045,25 +966,51 @@ class _AiVisionPageState
           const SizedBox(height: 12),
 
           // -----------------------------------------
-          // SCAN STATUS
+          // CORE STATUS
           // -----------------------------------------
 
-          if (scanned)
+          if (coreReceived)
             Container(
               width: double.infinity,
               padding:
                   const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: Colors.grey,
+                  color: Colors.green,
                 ),
                 borderRadius:
                     BorderRadius.circular(8),
               ),
-              child: const Text(
-                'สถานะ: สแกนภาพแล้ว\n'
-                'ระบบจะนำข้อมูลที่ AI อ่านได้เข้าสู่ Core',
-                textAlign: TextAlign.center,
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 30,
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  const Text(
+                    'สแกนภาพแล้ว\n'
+                    'Core รับ ScanResult เรียบร้อยแล้ว',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+
+                  if (warnings.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+
+                    Text(
+                      'Core แจ้งเตือน ${warnings.length} รายการ',
+                      textAlign:
+                          TextAlign.center,
+                    ),
+                  ],
+                ],
               ),
             ),
 
@@ -1074,7 +1021,7 @@ class _AiVisionPageState
           // -----------------------------------------
 
           const Text(
-            'รายละเอียดที่สแกนได้',
+            'รายละเอียดข้อมูล',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
