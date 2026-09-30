@@ -1,0 +1,1149 @@
+import 'dart:io';
+import 'package:camera/camera.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../ai_engine.dart';
+import '../core_pipeline.dart';
+import '../core/core_result.dart';
+import '../models.dart';
+import '../scan_data.dart';
+
+// =====================================================
+// HELPER
+// =====================================================
+
+T? firstWhereOrNull<T>(
+  Iterable<T> list,
+  bool Function(T) test,
+) {
+  for (final e in list) {
+    if (test(e)) {
+      return e;
+    }
+  }
+
+  return null;
+}
+
+// =====================================================
+// SCAN PAGE
+// =====================================================
+
+class ScanPage extends StatelessWidget {
+  final List<CameraDescription> cameras;
+  final String area;
+
+  final GroupData group;
+  final ModelData model;
+  final TypeData type;
+  final PrintData print;
+  final ReferenceData reference;
+
+  const ScanPage({
+    super.key,
+    required this.cameras,
+    required this.area,
+    required this.group,
+    required this.model,
+    required this.type,
+    required this.print,
+    required this.reference,
+  });
+
+  // ===================================================
+  // GALLERY
+  // ===================================================
+
+  Future<void> gallery(BuildContext context) async {
+    final picker = ImagePicker();
+
+    final XFile? selected = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (selected == null) {
+      return;
+    }
+
+    File? tempFile;
+
+    try {
+      tempFile = File(
+        '${Directory.systemTemp.path}/'
+        'amulet_scan_${newId()}.jpg',
+      );
+
+      await File(selected.path).copy(
+        tempFile.path,
+      );
+
+      if (!context.mounted) {
+        return;
+      }
+
+      final result = await Navigator.push<ScanResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiVisionPage(
+            imageFile: XFile(tempFile!.path),
+            area: area,
+            group: group,
+            model: model,
+            type: type,
+            print: print,
+            reference: reference,
+          ),
+        ),
+      );
+
+      if (result != null && context.mounted) {
+        Navigator.pop(
+          context,
+          result,
+        );
+      }
+    } finally {
+      try {
+        if (tempFile != null &&
+            await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
+    }
+  }
+
+  // ===================================================
+  // BUILD
+  // ===================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'สแกน $area',
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.document_scanner,
+                size: 80,
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                'องค์อ้างอิง #${reference.referenceNumber}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                area,
+                style: const TextStyle(
+                  fontSize: 20,
+                ),
+              ),
+
+              const SizedBox(height: 25),
+
+              // -----------------------------------------
+              // CAMERA
+              // -----------------------------------------
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: cameras.isEmpty
+                      ? null
+                      : () async {
+                          final result =
+                              await Navigator.push<ScanResult>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CameraScanPage(
+                                cameras: cameras,
+                                area: area,
+                                group: group,
+                                model: model,
+                                type: type,
+                                print: print,
+                                reference: reference,
+                              ),
+                            ),
+                          );
+
+                          if (result != null &&
+                              context.mounted) {
+                            Navigator.pop(
+                              context,
+                              result,
+                            );
+                          }
+                        },
+                  icon: const Icon(
+                    Icons.camera_alt,
+                  ),
+                  label: const Text(
+                    'เปิดกล้องสแกน',
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // -----------------------------------------
+              // GALLERY
+              // -----------------------------------------
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => gallery(context),
+                  icon: const Icon(
+                    Icons.photo_library,
+                  ),
+                  label: const Text(
+                    'เลือกภาพชั่วคราว',
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 25),
+
+              const Text(
+                'ภาพใช้ชั่วคราวเพื่ออ่านรายละเอียดเท่านั้น\n'
+                'เมื่อเสร็จแล้วระบบจะลบไฟล์ภาพ\n'
+                'ฐานข้อมูลจะเก็บเฉพาะข้อมูลรายละเอียด',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =====================================================
+// CAMERA SCAN PAGE
+// =====================================================
+
+class CameraScanPage extends StatefulWidget {
+  final List<CameraDescription> cameras;
+  final String area;
+
+  final GroupData group;
+  final ModelData model;
+  final TypeData type;
+  final PrintData print;
+  final ReferenceData reference;
+
+  const CameraScanPage({
+    super.key,
+    required this.cameras,
+    required this.area,
+    required this.group,
+    required this.model,
+    required this.type,
+    required this.print,
+    required this.reference,
+  });
+
+  @override
+  State<CameraScanPage> createState() =>
+      _CameraScanPageState();
+}
+
+class _CameraScanPageState
+    extends State<CameraScanPage> {
+  CameraController? controller;
+
+  Future<void>? initializeFuture;
+
+  bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.cameras.isEmpty) {
+      return;
+    }
+
+    controller = CameraController(
+      widget.cameras.first,
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
+
+    initializeFuture =
+        controller!.initialize();
+  }
+
+  @override
+  void dispose() {
+    controller?.dispose();
+    super.dispose();
+  }
+
+  // =================================================
+  // TAKE PHOTO
+  // =================================================
+
+  Future<void> take() async {
+    final c = controller;
+
+    if (busy ||
+        c == null ||
+        !c.value.isInitialized) {
+      return;
+    }
+
+    setState(() {
+      busy = true;
+    });
+
+    XFile? file;
+
+    try {
+      file = await c.takePicture();
+
+      if (!mounted) {
+        return;
+      }
+
+      final result =
+          await Navigator.push<ScanResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AiVisionPage(
+            imageFile: file!,
+            area: widget.area,
+            group: widget.group,
+            model: widget.model,
+            type: widget.type,
+            print: widget.print,
+            reference: widget.reference,
+          ),
+        ),
+      );
+
+      if (result != null && mounted) {
+        Navigator.pop(
+          context,
+          result,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          SnackBar(
+            content: Text(
+              'ไม่สามารถสแกนได้: $e',
+            ),
+          ),
+        );
+      }
+    } finally {
+      try {
+        if (file != null) {
+          final temp = File(file.path);
+
+          if (await temp.exists()) {
+            await temp.delete();
+          }
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          busy = false;
+        });
+      }
+    }
+  }
+
+  // =================================================
+  // CAMERA SCREEN
+  // =================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final c = controller;
+
+    if (c == null) {
+      return const Scaffold(
+        body: Center(
+          child: Text(
+            'ไม่พบกล้อง',
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'กล้อง - ${widget.area}',
+        ),
+      ),
+      body: FutureBuilder<void>(
+        future: initializeFuture,
+        builder: (_, snapshot) {
+          if (snapshot.connectionState !=
+                  ConnectionState.done ||
+              !c.value.isInitialized) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              CameraPreview(c),
+
+              Center(
+                child: Container(
+                  width: 260,
+                  height: 340,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      width: 2,
+                      color: Colors.white,
+                    ),
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+
+              Positioned(
+                top: 20,
+                left: 20,
+                right: 20,
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius:
+                          BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      widget.area,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              Positioned(
+                bottom: 30,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: FloatingActionButton(
+                    onPressed:
+                        busy ? null : take,
+                    child: busy
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child:
+                                CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.camera,
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// =====================================================
+// AI VISION / SCAN DETAIL PAGE
+// =====================================================
+
+class AiVisionPage extends StatefulWidget {
+  final XFile imageFile;
+  final String area;
+
+  final GroupData group;
+  final ModelData model;
+  final TypeData type;
+  final PrintData print;
+  final ReferenceData reference;
+
+  const AiVisionPage({
+    super.key,
+    required this.imageFile,
+    required this.area,
+    required this.group,
+    required this.model,
+    required this.type,
+    required this.print,
+    required this.reference,
+  });
+
+  @override
+  State<AiVisionPage> createState() =>
+      _AiVisionPageState();
+}
+
+class _AiVisionPageState
+    extends State<AiVisionPage> {
+  final AiEngine ai = const AiEngine();
+
+  final Map<String, TextEditingController>
+      controllers = {};
+
+  bool scanning = false;
+  bool scanned = false;
+  bool saving = false;
+
+  // =================================================
+  // INIT
+  // =================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    for (final head in aiHeads) {
+      controllers[head] =
+          TextEditingController();
+    }
+
+    final old = firstWhereOrNull(
+      widget.reference.scans,
+      (scan) => scan.area == widget.area,
+    );
+
+    if (old != null) {
+      _loadOldData(old.details);
+    }
+
+    // -----------------------------------------------
+    // สำคัญ:
+    // ยังไม่เรียก AI อัตโนมัติ
+    // ต้องกดปุ่ม "สแกนภาพ" ก่อน
+    // -----------------------------------------------
+  }
+
+  // =================================================
+  // ANALYZE IMAGE
+  // =================================================
+
+  Future<void> _analyzeImage() async {
+    if (scanning) {
+      return;
+    }
+
+    setState(() {
+      scanning = true;
+      scanned = false;
+    });
+
+    try {
+      final result = await ai.analyzeImage(
+        area: widget.area,
+        imagePath: widget.imageFile.path,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final values = <String, String>{
+        'พิมพ์ทรง': result.printShape,
+        'องค์ประกอบ': result.composition,
+        'ลวดลาย': result.patterns,
+        'ตำหนิที่มองเห็น': result.visibleMarks,
+        'ผิว': result.surface,
+        'ลักษณะเนื้อที่มองเห็น':
+            result.material,
+        'ขอบ/ด้านข้าง': result.edge,
+        'จุดสังเกต': result.observation,
+        'รายละเอียดอื่น': result.otherDetails,
+        'สิ่งที่อ่านไม่ได้': result.unreadable,
+      };
+
+      bool changed = false;
+      bool hasAiData = false;
+
+      for (final entry in values.entries) {
+        final controller =
+            controllers[entry.key];
+
+        if (controller == null) {
+          continue;
+        }
+
+        if (entry.value.trim().isNotEmpty) {
+          hasAiData = true;
+        }
+
+        if (controller.text.trim().isEmpty &&
+            entry.value.trim().isNotEmpty) {
+          controller.text = entry.value;
+          changed = true;
+        }
+      }
+
+      scanned = true;
+
+      if (changed) {
+        setState(() {});
+      } else {
+        setState(() {});
+      }
+
+      if (!hasAiData) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          const SnackBar(
+            content: Text(
+              'สแกนแล้ว แต่ยังไม่มี AI วิเคราะห์ภาพจริงในระบบ',
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          const SnackBar(
+            content: Text(
+              'สแกนภาพเสร็จแล้ว',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          scanned = false;
+        });
+
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          SnackBar(
+            content: Text(
+              'ไม่สามารถวิเคราะห์ภาพได้: $e',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          scanning = false;
+        });
+      }
+    }
+  }
+
+  // =================================================
+  // LOAD OLD DATA
+  // =================================================
+
+  void _loadOldData(String details) {
+    final lines = details.split('\n');
+
+    bool loadedByHead = false;
+
+    for (final head in aiHeads) {
+      final line = firstWhereOrNull(
+        lines,
+        (value) => value.startsWith(
+          '$head:',
+        ),
+      );
+
+      if (line != null) {
+        controllers[head]!.text =
+            line
+                .substring(head.length + 1)
+                .trim();
+
+        loadedByHead = true;
+      }
+    }
+
+    if (!loadedByHead &&
+        details.trim().isNotEmpty) {
+      controllers[aiHeads.first]!.text =
+          details.trim();
+    }
+  }
+
+  // =================================================
+  // DISPOSE
+  // =================================================
+
+  @override
+  void dispose() {
+    for (final controller
+        in controllers.values) {
+      controller.dispose();
+    }
+
+    super.dispose();
+  }
+
+  // =================================================
+  // BUILD DETAILS
+  // =================================================
+
+  String buildDetails() {
+    final output = <String>[];
+
+    for (final head in aiHeads) {
+      final value =
+          controllers[head]!.text.trim();
+
+      if (value.isNotEmpty) {
+        output.add(
+          '$head: $value',
+        );
+      }
+    }
+
+    return output.join('\n');
+  }
+
+  // =================================================
+  // SAVE
+  // =================================================
+
+  Future<void> save() async {
+    if (saving) {
+      return;
+    }
+
+    final details = buildDetails();
+
+    if (details.trim().isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'ยังไม่มีข้อมูลสำหรับบันทึก',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    setState(() {
+      saving = true;
+    });
+
+    try {
+      final coreResult = CoreResult(
+        area: widget.area,
+      );
+
+      for (final head in aiHeads) {
+        final value =
+            controllers[head]!.text.trim();
+
+        if (value.isEmpty) {
+          continue;
+        }
+
+        switch (head) {
+          case 'พิมพ์ทรง':
+            coreResult.printShape = value;
+            break;
+
+          case 'องค์ประกอบ':
+            coreResult.composition = value;
+            break;
+
+          case 'ลวดลาย':
+            coreResult.pattern = value;
+            break;
+
+          case 'ตำหนิที่มองเห็น':
+            coreResult.visibleMarks = value;
+            break;
+
+          case 'ผิว':
+            coreResult.surface = value;
+            break;
+
+          case 'ลักษณะเนื้อที่มองเห็น':
+            coreResult.material = value;
+            break;
+
+          case 'ขอบ/ด้านข้าง':
+            coreResult.edge = value;
+            break;
+
+          case 'จุดสังเกต':
+            coreResult.observation = value;
+            break;
+
+          case 'รายละเอียดอื่น':
+            coreResult.other = value;
+            break;
+
+          case 'สิ่งที่อ่านไม่ได้':
+            coreResult.unreadable = value;
+            break;
+        }
+      }
+
+      switch (widget.area) {
+        case 'ด้านหน้า':
+          coreResult.frontDetails = details;
+          break;
+
+        case 'ด้านหลัง':
+          coreResult.backDetails = details;
+          break;
+
+        case 'ด้านข้าง':
+          coreResult.edgeDetails = details;
+          break;
+
+        case 'ก้นพระ':
+          coreResult.bottomDetails = details;
+          break;
+      }
+
+      const pipeline = CorePipeline();
+
+      final pipelineResult =
+          pipeline.processCoreResult(
+        coreResult: coreResult,
+        id: widget.reference.id,
+        referenceNumber:
+            widget.reference.referenceNumber,
+        createdAt:
+            widget.reference.createdAt,
+        width: widget.reference.width,
+        height: widget.reference.height,
+        thickness:
+            widget.reference.thickness,
+        unit: widget.reference.unit,
+        sourceName:
+            widget.reference.sourceName,
+        sourceUrl:
+            widget.reference.sourceUrl,
+      );
+
+      widget.reference.frontDetails =
+          pipelineResult.reference.frontDetails;
+
+      widget.reference.backDetails =
+          pipelineResult.reference.backDetails;
+
+      widget.reference.edgeDetails =
+          pipelineResult.reference.edgeDetails;
+
+      widget.reference.bottomDetails =
+          pipelineResult.reference.bottomDetails;
+
+      widget.reference.surfaceDetails =
+          pipelineResult.reference.surfaceDetails;
+
+      widget.reference.shapeDetails =
+          pipelineResult.reference.shapeDetails;
+
+      widget.reference.materialDetails =
+          pipelineResult.reference.materialDetails;
+
+      widget.reference.distinctivePoints =
+          pipelineResult.reference.distinctivePoints;
+
+      widget.reference.defectPoints =
+          pipelineResult.reference.defectPoints;
+
+      widget.reference.calculateRatio();
+
+      final result = ScanResult(
+        area: widget.area,
+        details: details,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(
+        context,
+        result,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+          SnackBar(
+            content: Text(
+              'ไม่สามารถประมวลผลข้อมูล Core ได้: $e',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          saving = false;
+        });
+      }
+    }
+  }
+
+  // =================================================
+  // CLEAR ALL
+  // =================================================
+
+  void clearAll() {
+    for (final controller
+        in controllers.values) {
+      controller.clear();
+    }
+
+    setState(() {});
+  }
+
+  // =================================================
+  // BUILD
+  // =================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'รายละเอียด ${widget.area}',
+        ),
+        actions: [
+          IconButton(
+            onPressed:
+                scanning ? null : clearAll,
+            tooltip: 'ล้างข้อมูล',
+            icon: const Icon(
+              Icons.clear_all,
+            ),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(10),
+        children: [
+          // -----------------------------------------
+          // IMAGE
+          // -----------------------------------------
+
+          Container(
+            height: 260,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.grey,
+              ),
+              borderRadius:
+                  BorderRadius.circular(10),
+            ),
+            child: ClipRRect(
+              borderRadius:
+                  BorderRadius.circular(10),
+              child: Image.file(
+                File(widget.imageFile.path),
+                fit: BoxFit.contain,
+                errorBuilder:
+                    (_, __, ___) {
+                  return const Center(
+                    child: Text(
+                      'ไม่สามารถแสดงภาพชั่วคราวได้',
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          const Text(
+            'ภาพนี้ใช้ชั่วคราวเท่านั้น\n'
+            'ระบบจะไม่บันทึกภาพลงฐานข้อมูล',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // -----------------------------------------
+          // SCAN BUTTON
+          // -----------------------------------------
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed:
+                  scanning ? null : _analyzeImage,
+              icon: scanning
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.document_scanner,
+                    ),
+              label: Text(
+                scanning
+                    ? 'กำลังสแกนภาพ...'
+                    : scanned
+                        ? 'สแกนภาพอีกครั้ง'
+                        : 'สแกนภาพ',
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // -----------------------------------------
+          // SCAN STATUS
+          // -----------------------------------------
+
+          if (scanned)
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.grey,
+                ),
+                borderRadius:
+                    BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'สถานะ: สแกนภาพแล้ว\n'
+                'ระบบจะนำข้อมูลที่ AI อ่านได้เข้าสู่ Core',
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+          const SizedBox(height: 18),
+
+          // -----------------------------------------
+          // DETAILS
+          // -----------------------------------------
+
+          const Text(
+            'รายละเอียดที่สแกนได้',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          ...aiHeads.map(
+            (head) {
+              return Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom: 12,
+                ),
+                child: TextField(
+                  controller:
+                      controllers[head],
+                  maxLines: 3,
+                  textInputAction:
+                      TextInputAction.newline,
+                  decoration:
+                      InputDecoration(
+                    labelText: head,
+                    alignLabelWithHint:
+                        true,
+                    border:
+                        const OutlineInputBorder(),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 5),
+
+          // -----------------------------------------
+          // SAVE
+          // -----------------------------------------
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed:
+                  saving ? null : save,
+              icon: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.save,
+                    ),
+              label: Text(
+                saving
+                    ? 'กำลังบันทึก...'
+                    : 'บันทึกข้อมูล',
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+}
