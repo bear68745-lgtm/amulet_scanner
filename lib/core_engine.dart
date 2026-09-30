@@ -58,7 +58,7 @@ class CoreEngine {
           break;
 
         case 'ด้านข้าง':
-          result.edge = details;
+          result.edgeDetails = details;
           break;
 
         case 'ก้นพระ':
