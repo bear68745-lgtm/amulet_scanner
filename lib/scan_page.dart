@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../core_pipeline.dart';
 import '../models.dart';
 import '../scan_data.dart';
+import '../core/image_object_detector.dart';
 
 // =====================================================
 // HELPER
@@ -21,6 +22,7 @@ T? firstWhereOrNull<T>(
       return e;
     }
   }
+
   return null;
 }
 
@@ -538,6 +540,13 @@ class _AiVisionPageState
   CorePipelineResult? pipelineResult;
 
   // =================================================
+  // ผลตรวจวัตถุจาก Core
+  // =================================================
+
+  ImageObjectDetectionResult?
+      objectDetection;
+
+  // =================================================
   // เฉพาะหัวข้อที่แสดงตามพื้นที่สแกน
   // =================================================
 
@@ -595,7 +604,7 @@ class _AiVisionPageState
   }
 
   // =================================================
-  // SCAN
+  // SCAN IMAGE WITH CORE
   // =================================================
 
   Future<void> _scanImage() async {
@@ -608,6 +617,7 @@ class _AiVisionPageState
       scanned = false;
       coreReceived = false;
       pipelineResult = null;
+      objectDetection = null;
     });
 
     try {
@@ -620,11 +630,46 @@ class _AiVisionPageState
         );
       }
 
+      // ---------------------------------------------
+      // CORE IMAGE OBJECT DETECTOR
+      // ---------------------------------------------
+
+      const detector =
+          ImageObjectDetector();
+
+      final detected =
+          await detector.detect(
+        imagePath:
+            widget.imageFile.path,
+        area: widget.area,
+      );
+
+      // ---------------------------------------------
+      // สร้างข้อมูลที่ Core อ่านได้
+      // ---------------------------------------------
+
+      final details = [
+        'พื้นที่วัตถุหลัก',
+        'ซ้าย: '
+            '${detected.left.toStringAsFixed(3)}',
+        'บน: '
+            '${detected.top.toStringAsFixed(3)}',
+        'ขวา: '
+            '${detected.right.toStringAsFixed(3)}',
+        'ล่าง: '
+            '${detected.bottom.toStringAsFixed(3)}',
+        'สัดส่วนพื้นที่: '
+            '${detected.objectRatio.toStringAsFixed(3)}',
+      ].join('\n');
+
       final scan = ScanResult(
         area: widget.area,
-        details:
-            'ภาพถูกนำเข้าสู่ระบบแล้ว',
+        details: details,
       );
+
+      // ---------------------------------------------
+      // ส่งผลเข้า CORE PIPELINE
+      // ---------------------------------------------
 
       const pipeline = CorePipeline();
 
@@ -654,18 +699,16 @@ class _AiVisionPageState
 
       setState(() {
         pipelineResult = result;
+        objectDetection = detected;
         scanned = true;
         coreReceived = true;
-
-        controllers[aiHeads.last]!.text =
-            'ภาพถูกนำเข้าสู่ระบบแล้ว';
       });
 
       ScaffoldMessenger.of(context)
           .showSnackBar(
         const SnackBar(
           content: Text(
-            'นำภาพเข้า Core เรียบร้อยแล้ว',
+            'Core ตรวจหาพื้นที่วัตถุจากภาพแล้ว',
           ),
         ),
       );
@@ -675,13 +718,14 @@ class _AiVisionPageState
           scanned = false;
           coreReceived = false;
           pipelineResult = null;
+          objectDetection = null;
         });
 
         ScaffoldMessenger.of(context)
             .showSnackBar(
           SnackBar(
             content: Text(
-              'ไม่สามารถนำภาพเข้า Core ได้: $e',
+              'ไม่สามารถอ่านภาพด้วย Core ได้: $e',
             ),
           ),
         );
@@ -759,6 +803,23 @@ class _AiVisionPageState
           '$head: $value',
         );
       }
+    }
+
+    // ---------------------------------------------
+    // เพิ่มผลตรวจ Core ถ้ามี
+    // ---------------------------------------------
+
+    final detected = objectDetection;
+
+    if (detected != null) {
+      output.add(
+        'Core ตรวจพื้นที่วัตถุ: '
+        'ซ้าย ${detected.left.toStringAsFixed(3)}, '
+        'บน ${detected.top.toStringAsFixed(3)}, '
+        'ขวา ${detected.right.toStringAsFixed(3)}, '
+        'ล่าง ${detected.bottom.toStringAsFixed(3)}, '
+        'พื้นที่ ${detected.objectRatio.toStringAsFixed(3)}',
+      );
     }
 
     return output.join('\n');
@@ -887,7 +948,12 @@ class _AiVisionPageState
       controller.clear();
     }
 
-    setState(() {});
+    setState(() {
+      objectDetection = null;
+      pipelineResult = null;
+      scanned = false;
+      coreReceived = false;
+    });
   }
 
   // =================================================
@@ -899,6 +965,8 @@ class _AiVisionPageState
     final warnings =
         pipelineResult?.validation.warnings ??
             <String>[];
+
+    final detected = objectDetection;
 
     return Scaffold(
       appBar: AppBar(
@@ -988,7 +1056,7 @@ class _AiVisionPageState
                     ),
               label: Text(
                 scanning
-                    ? 'กำลังนำภาพเข้า Core...'
+                    ? 'กำลังให้ Core อ่านภาพ...'
                     : scanned
                         ? 'สแกนอีกครั้ง'
                         : 'สแกนภาพ',
@@ -1025,8 +1093,7 @@ class _AiVisionPageState
                   const SizedBox(height: 6),
 
                   const Text(
-                    'นำภาพเข้า Core แล้ว\n'
-                    'Core รับข้อมูลเรียบร้อยแล้ว',
+                    'Core อ่านภาพเรียบร้อยแล้ว',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight:
@@ -1034,10 +1101,40 @@ class _AiVisionPageState
                     ),
                   ),
 
+                  if (detected != null) ...[
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'ผลตรวจพื้นที่วัตถุหลัก',
+                      style: TextStyle(
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    Text(
+                      'ซ้าย: '
+                      '${detected.left.toStringAsFixed(3)}\n'
+                      'บน: '
+                      '${detected.top.toStringAsFixed(3)}\n'
+                      'ขวา: '
+                      '${detected.right.toStringAsFixed(3)}\n'
+                      'ล่าง: '
+                      '${detected.bottom.toStringAsFixed(3)}\n'
+                      'สัดส่วนพื้นที่: '
+                      '${detected.objectRatio.toStringAsFixed(3)}',
+                      textAlign:
+                          TextAlign.center,
+                    ),
+                  ],
+
                   if (warnings.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Core แจ้งเตือน ${warnings.length} รายการ',
+                      'Core แจ้งเตือน '
+                      '${warnings.length} รายการ',
                       textAlign:
                           TextAlign.center,
                     ),
@@ -1062,9 +1159,9 @@ class _AiVisionPageState
 
           const SizedBox(height: 10),
 
-          // =================================================
+          // -----------------------------------------
           // แสดงเฉพาะหัวข้อที่ตรงกับพื้นที่สแกน
-          // =================================================
+          // -----------------------------------------
 
           ...visibleAiHeads.map(
             (head) {
