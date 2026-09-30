@@ -14,7 +14,7 @@
 // Core ไม่เก็บไฟล์รูปภาพ
 // =====================================================
 
-import '../ai_engine.dart';
+import 'ai_engine.dart';
 import 'core/core_result.dart';
 
 class CoreEngine {
