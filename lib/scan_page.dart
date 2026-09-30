@@ -1,10 +1,10 @@
 import 'dart:io';
-
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
 import '../ai_engine.dart';
+import '../core_engine.dart';
+import '../core/core_result.dart';
 import '../models.dart';
 import '../scan_data.dart';
 
