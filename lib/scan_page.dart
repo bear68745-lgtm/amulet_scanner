@@ -1,7 +1,9 @@
 import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../core_pipeline.dart';
 import '../models.dart';
 import '../scan_data.dart';
@@ -19,7 +21,6 @@ T? firstWhereOrNull<T>(
       return e;
     }
   }
-
   return null;
 }
 
@@ -126,7 +127,8 @@ class ScanPage extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment:
+                MainAxisAlignment.center,
             children: [
               const Icon(
                 Icons.document_scanner,
@@ -168,7 +170,8 @@ class ScanPage extends StatelessWidget {
                               await Navigator.push<ScanResult>(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => CameraScanPage(
+                              builder: (_) =>
+                                  CameraScanPage(
                                 cameras: cameras,
                                 area: area,
                                 group: group,
@@ -206,7 +209,8 @@ class ScanPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => gallery(context),
+                  onPressed: () =>
+                      gallery(context),
                   icon: const Icon(
                     Icons.photo_library,
                   ),
@@ -494,22 +498,6 @@ class _CameraScanPageState
 // =====================================================
 // SCAN DETAIL PAGE
 // =====================================================
-//
-// รูปภาพ
-//    ↓
-// ตรวจสอบว่าไฟล์ภาพมีอยู่จริง
-//    ↓
-// ScanResult
-//    ↓
-// CorePipeline
-//    ↓
-// CoreResult / ReferenceData
-//
-// ไม่มี AI
-// ไม่มีการใช้ขนาดภาพ
-// ไม่มีการใช้ขนาดไฟล์
-// ไม่มีการเดาขนาดองค์พระ
-// =====================================================
 
 class AiVisionPage extends StatefulWidget {
   final XFile imageFile;
@@ -548,6 +536,40 @@ class _AiVisionPageState
   bool saving = false;
 
   CorePipelineResult? pipelineResult;
+
+  // =================================================
+  // เฉพาะหัวข้อที่แสดงตามพื้นที่สแกน
+  // =================================================
+
+  List<String> get visibleAiHeads {
+    final result = <String>[];
+
+    for (final head in aiHeads) {
+      if (widget.area == 'ด้านหน้า' &&
+          head == 'ขอบ/ด้านข้าง') {
+        continue;
+      }
+
+      if (widget.area == 'ด้านหลัง' &&
+          head == 'ขอบ/ด้านข้าง') {
+        continue;
+      }
+
+      if (widget.area == 'ด้านข้าง' &&
+          head != 'ขอบ/ด้านข้าง') {
+        continue;
+      }
+
+      if (widget.area == 'ก้นพระ' &&
+          head == 'ขอบ/ด้านข้าง') {
+        continue;
+      }
+
+      result.add(head);
+    }
+
+    return result;
+  }
 
   // =================================================
   // INIT
@@ -728,7 +750,7 @@ class _AiVisionPageState
   String buildDetails() {
     final output = <String>[];
 
-    for (final head in aiHeads) {
+    for (final head in visibleAiHeads) {
       final value =
           controllers[head]!.text.trim();
 
@@ -894,6 +916,7 @@ class _AiVisionPageState
           ),
         ],
       ),
+
       body: ListView(
         padding: const EdgeInsets.all(10),
         children: [
@@ -1013,7 +1036,6 @@ class _AiVisionPageState
 
                   if (warnings.isNotEmpty) ...[
                     const SizedBox(height: 8),
-
                     Text(
                       'Core แจ้งเตือน ${warnings.length} รายการ',
                       textAlign:
@@ -1030,9 +1052,9 @@ class _AiVisionPageState
           // DETAILS
           // -----------------------------------------
 
-          const Text(
-            'รายละเอียดข้อมูล',
-            style: TextStyle(
+          Text(
+            'รายละเอียดข้อมูล ${widget.area}',
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -1040,10 +1062,16 @@ class _AiVisionPageState
 
           const SizedBox(height: 10),
 
-          ...aiHeads.map(
+          // =================================================
+          // แสดงเฉพาะหัวข้อที่ตรงกับพื้นที่สแกน
+          // =================================================
+
+          ...visibleAiHeads.map(
             (head) {
               final value =
-                  controllers[head]!.text.trim();
+                  controllers[head]!
+                      .text
+                      .trim();
 
               return Padding(
                 padding:
