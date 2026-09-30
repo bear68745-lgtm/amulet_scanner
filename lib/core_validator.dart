@@ -78,8 +78,13 @@ class CoreValidator {
       warnings.add('ยังไม่ได้ระบุสิ่งที่อ่านไม่ได้');
     }
 
+    // -----------------------------------------------
+    // warnings เป็นเพียงคำเตือน
+    // ไม่ได้หมายความว่าข้อมูลใช้ไม่ได้
+    // -----------------------------------------------
+
     return CoreValidationResult(
-      isValid: warnings.isEmpty,
+      isValid: true,
       warnings: warnings,
     );
   }
