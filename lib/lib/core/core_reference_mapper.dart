@@ -24,12 +24,34 @@ class CoreReferenceMapper {
     required String id,
     required int referenceNumber,
     required String createdAt,
+
+    double width = 0.0,
+    double height = 0.0,
+    double thickness = 0.0,
+    String unit = 'mm',
+
+    String sourceName = '',
+    String sourceUrl = '',
   }) {
     final reference = ReferenceData(
       id: id,
       referenceNumber: referenceNumber,
       createdAt: createdAt,
       updatedAt: createdAt,
+
+      // -----------------------------
+      // ขนาดจริงจากแหล่งอ้างอิง
+      // -----------------------------
+      width: width,
+      height: height,
+      thickness: thickness,
+      unit: unit,
+
+      // -----------------------------
+      // แหล่งอ้างอิง
+      // -----------------------------
+      sourceName: sourceName,
+      sourceUrl: sourceUrl,
 
       // -----------------------------
       // รายละเอียดแต่ละด้าน
@@ -52,6 +74,9 @@ class CoreReferenceMapper {
       distinctivePoints: result.visibleMarks,
       defectPoints: result.unreadable,
     );
+
+    // คำนวณอัตราส่วน กว้าง : สูง
+    reference.calculateRatio();
 
     return reference;
   }
