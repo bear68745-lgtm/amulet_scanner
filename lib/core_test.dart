@@ -24,6 +24,7 @@
 
 import 'core_engine.dart';
 import 'core/core_reference_mapper.dart';
+import 'core/core_result.dart';
 import 'core_validator.dart';
 import 'models.dart';
 import 'scan_data.dart';
