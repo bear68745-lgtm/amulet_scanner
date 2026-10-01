@@ -313,8 +313,36 @@ const SizedBox(height: 12),
 
       const SizedBox(height: 12),
 
-      if (selectedModelName == 'เหรียญ')
-        DropdownButtonFormField<String>(
+      if (selectedModelName == 'เหรียญ') ...[
+  DropdownButtonFormField<String>(
+    value: selectedCoinShape,
+    decoration: const InputDecoration(
+      labelText: 'รูปทรงเหรียญ',
+      border: OutlineInputBorder(),
+    ),
+    items: coinShapeNames.map(
+      (name) {
+        return DropdownMenuItem<String>(
+          value: name,
+          child: Text(name),
+        );
+      },
+    ).toList(),
+    onChanged: saving
+        ? null
+        : (value) {
+            setState(() {
+              selectedCoinShape = value;
+            });
+          },
+  ),
+
+  if (selectedCoinShape == 'รูปไข่') ...[
+    const SizedBox(height: 12),
+    const OvalOutline(),
+  ],
+] else
+  TextField(
           value: selectedCoinShape,
           decoration: const InputDecoration(
             labelText: 'รูปทรงเหรียญ',
