@@ -6,7 +6,9 @@ import 'scan_data.dart';
 import 'storage.dart';
 import 'data/coin_shapes.dart';
 import 'data/model_types.dart';
-import 'common/app_helpers.dart'
+import 'common/app_helpers.dart';
+import 'common/path_bar.dart';
+    
     show textDialog, confirmDelete;
 
 Future<void> main() async {
