@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'models.dart';
 import 'scan_data.dart';
 import 'storage.dart';
-
+import 'data/coin_shapes.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -45,30 +45,8 @@ const List<String> standardModelNames = [
   'รูปหล่อ',
   'พระกริ่ง',
   'พระขุนแผน',
+  
 ];
-
-// =====================================================
-// STANDARD COIN SHAPES
-// =====================================================
-
-const List<String> coinShapeNames = [
-  'กลม',
-  'รูปไข่',
-  'เสมา',
-  'อาร์ม',
-  'ห้าเหลี่ยม',
-  'หกเหลี่ยม',
-  'เม็ดแตง',
-  'ใบสาเก',
-  'ซุ้มกอ',
-  'น้ำเต้า',
-  'หยดน้ำ',
-  'นั่งพาน',
-  'สี่เหลี่ยม',
-  'สี่เหลี่ยมข้าวหลามตัด',
-  'จอบ',
-];
-
 Future<String?> textDialog(
   BuildContext context,
   String title,
