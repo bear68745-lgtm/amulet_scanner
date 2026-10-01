@@ -42,3 +42,4 @@ class OvalOutlinePainter extends CustomPainter {
     return false;
   }
 }
+
