@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../storage.dart';
 import '../common/app_helpers.dart'
-    show now, confirmDelete;
+    show  confirmDelete;
 import '../common/path_bar.dart';
 
 class HomePage extends StatefulWidget {
