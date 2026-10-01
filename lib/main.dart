@@ -9,7 +9,7 @@ import 'data/model_types.dart';
 import 'common/app_helpers.dart'
 show textDialog, confirmDelete;
 import 'common/path_bar.dart';
-
+import 'drawings/coin_shape_outline.dart';
 Future<void> main() async {
 WidgetsFlutterBinding.ensureInitialized();
 
