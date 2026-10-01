@@ -1,37 +1,25 @@
 import 'package:flutter/material.dart';
 
 class PathBar extends StatelessWidget {
-final List<String> items;
+  final String text;
 
-const PathBar({
-super.key,
-required this.items,
-});
+  const PathBar(
+    this.text, {
+    super.key,
+  });
 
-@override
-Widget build(BuildContext context) {
-return SingleChildScrollView(
-scrollDirection: Axis.horizontal,
-child: Row(
-children: [
-for (int i = 0; i < items.length; i++) ...[
-Text(
-items[i],
-style: const TextStyle(
-fontSize: 14,
-),
-),
-if (i < items.length - 1)
-const Padding(
-padding: EdgeInsets.symmetric(horizontal: 6),
-child: Icon(
-Icons.chevron_right,
-size: 18,
-),
-),
-],
-],
-),
-);
-}
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      color: Colors.brown.shade50,
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
 }
