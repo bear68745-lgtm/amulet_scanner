@@ -5,6 +5,7 @@ import 'models.dart';
 import 'scan_data.dart';
 import 'storage.dart';
 import 'data/coin_shapes.dart';
+import 'data/model_types.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
