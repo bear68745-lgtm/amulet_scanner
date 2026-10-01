@@ -38,16 +38,6 @@ String now() => DateTime.now().toIso8601String();
 // =====================================================
 // STANDARD MODEL NAMES
 // =====================================================
-
-const List<String> standardModelNames = [
-  'เหรียญ',
-  'เหรียญหล่อ',
-  'พระผง',
-  'รูปหล่อ',
-  'พระกริ่ง',
-  'พระขุนแผน',
-  
-];
 Future<String?> textDialog(
   BuildContext context,
   String title,
