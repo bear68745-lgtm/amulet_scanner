@@ -178,6 +178,248 @@ class ShapeAnalysisResult {
 class ShapeAnalyzer {
   const ShapeAnalyzer();
 
+  /// ============================================================
+  /// สกัดสัญลักษณ์โครงร่างจากภาพตัวอย่างจริง
+  /// ============================================================
+  ///
+  /// ใช้ภาพชั่วคราวเป็นแหล่งข้อมูล
+  ///
+  /// ภาพจะถูกอ่านเพื่อหาข้อมูลโครงร่างเท่านั้น
+  ///
+  /// ไม่สร้างภาพใหม่
+  /// ไม่บันทึกภาพ
+  /// ไม่เก็บสำเนาภาพ
+  ///
+  /// ผลลัพธ์คือ ShapeOutlineSymbol
+  /// ซึ่งเก็บเฉพาะตัวเลขของเส้นรอบนอก
+  Future<ShapeOutlineSymbol> extractOutlineSymbol({
+    required String imagePath,
+    required String shapeName,
+    required double left,
+    required double top,
+    required double right,
+    required double bottom,
+  }) async {
+    final file = File(imagePath);
+
+    if (!await file.exists()) {
+      throw Exception('ไม่พบไฟล์ภาพชั่วคราว');
+    }
+
+    final bytes = await file.readAsBytes();
+
+    if (bytes.isEmpty) {
+      throw Exception('ไฟล์ภาพว่าง');
+    }
+
+    final decoded = img.decodeImage(bytes);
+
+    if (decoded == null) {
+      throw Exception('ไม่สามารถอ่านภาพได้');
+    }
+
+    final image = _resizeForAnalysis(decoded);
+
+    final cropLeft = _clampInt(
+      (left * image.width).floor(),
+      0,
+      image.width - 1,
+    );
+
+    final cropTop = _clampInt(
+      (top * image.height).floor(),
+      0,
+      image.height - 1,
+    );
+
+    final cropRight = _clampInt(
+      (right * image.width).ceil(),
+      cropLeft + 1,
+      image.width,
+    );
+
+    final cropBottom = _clampInt(
+      (bottom * image.height).ceil(),
+      cropTop + 1,
+      image.height,
+    );
+
+    final objectWidth = cropRight - cropLeft;
+    final objectHeight = cropBottom - cropTop;
+
+    if (objectWidth < 5 || objectHeight < 5) {
+      throw Exception(
+        'พื้นที่ตัวอย่างเล็กเกินไปสำหรับสร้างโครงร่าง',
+      );
+    }
+
+    final borderColor = _estimateLocalBorderColor(
+      image,
+      cropLeft,
+      cropTop,
+      cropRight,
+      cropBottom,
+    );
+
+    final threshold = _calculateThreshold(
+      image,
+      cropLeft,
+      cropTop,
+      cropRight,
+      cropBottom,
+      borderColor,
+    );
+
+    final mask = <bool>[
+      for (int i = 0; i < objectWidth * objectHeight; i++)
+        false,
+    ];
+
+    int detectedPixels = 0;
+
+    for (int y = cropTop; y < cropBottom; y++) {
+      for (int x = cropLeft; x < cropRight; x++) {
+        final pixel = image.getPixel(x, y);
+
+        final distance = _colorDistance(
+          pixel,
+          borderColor,
+        );
+
+        if (distance >= threshold) {
+          final localX = x - cropLeft;
+          final localY = y - cropTop;
+
+          mask[
+            localY * objectWidth + localX
+          ] = true;
+
+          detectedPixels++;
+        }
+      }
+    }
+
+    if (detectedPixels == 0) {
+      throw Exception(
+        'ไม่สามารถแยกวัตถุตัวอย่างออกจากพื้นหลังได้',
+      );
+    }
+
+    final centroid = _calculateCentroid(
+      image,
+      mask,
+      objectWidth,
+      objectHeight,
+      cropLeft,
+      cropTop,
+    );
+
+    const sampleCount = 72;
+
+    final radialProfile = <double>[];
+
+    final maxRadius = math.sqrt(
+      objectWidth * objectWidth +
+          objectHeight * objectHeight,
+    );
+
+    /// ----------------------------------------------------------
+    /// หาเส้นรอบนอกสุด
+    /// ----------------------------------------------------------
+    ///
+    /// จุดสำคัญ:
+    /// ไม่หยุดเมื่อเจอช่องว่างเล็ก ๆ จากลวดลายด้านใน
+    ///
+    /// จะเดินต่อไปจนสุดแนวรัศมี
+    /// แล้วเก็บจุดที่เป็นวัตถุที่อยู่ไกลที่สุด
+    ///
+    /// จึงเน้น "โครงร่างภายนอก"
+    /// มากกว่ารายละเอียดภายในเหรียญ
+    for (int i = 0; i < sampleCount; i++) {
+      final angle =
+          (2 * math.pi * i) / sampleCount;
+
+      double outerRadius = 0;
+
+      for (
+        double radius = 1;
+        radius <= maxRadius;
+        radius += 1
+      ) {
+        final x =
+            (centroid.x +
+                    math.cos(angle) * radius)
+                .round();
+
+        final y =
+            (centroid.y +
+                    math.sin(angle) * radius)
+                .round();
+
+        final localX =
+            x - cropLeft;
+
+        final localY =
+            y - cropTop;
+
+        if (localX < 0 ||
+            localX >= objectWidth ||
+            localY < 0 ||
+            localY >= objectHeight) {
+          break;
+        }
+
+        if (mask[
+            localY * objectWidth + localX]) {
+          outerRadius = radius;
+        }
+      }
+
+      radialProfile.add(outerRadius);
+    }
+
+    final validRadii =
+        radialProfile.where((value) => value > 0).toList();
+
+    if (validRadii.length < sampleCount * 0.80) {
+      throw Exception(
+        'เส้นรอบนอกของตัวอย่างไม่สมบูรณ์พอสำหรับสร้างสัญลักษณ์',
+      );
+    }
+
+    final maximum =
+        validRadii.reduce(math.max);
+
+    if (maximum <= 0) {
+      throw Exception(
+        'ไม่พบระยะเส้นรอบนอกของตัวอย่าง',
+      );
+    }
+
+    /// ----------------------------------------------------------
+    /// ทำให้ค่ามีสเกลมาตรฐาน
+    /// ----------------------------------------------------------
+    ///
+    /// ค่าสูงสุด = 1.0
+    /// ค่าที่เหลือเป็นสัดส่วนของรัศมี
+    ///
+    /// ทำให้ไม่ผูกกับขนาดภาพ
+    /// และไม่ผูกกับขนาดเหรียญจริง
+    final normalizedProfile =
+        radialProfile.map((radius) {
+      if (radius <= 0) {
+        return 0.0;
+      }
+
+      return radius / maximum;
+    }).toList();
+
+    return ShapeOutlineSymbol(
+      name: shapeName,
+      radialProfile: normalizedProfile,
+    );
+  }
+
   Future<ShapeAnalysisResult> analyze({
     required String imagePath,
     required double left,
