@@ -8,6 +8,7 @@ import '../core_pipeline.dart';
 import '../models.dart';
 import '../scan_data.dart';
 import '../core/image_object_detector.dart';
+import '../core/shape_analyzer.dart';
 
 // =====================================================
 // HELPER
@@ -608,6 +609,13 @@ class _AiVisionPageState
       objectDetection;
 
   // =================================================
+  // SHAPE ANALYSIS
+  // =================================================
+
+  ShapeAnalysisResult?
+      shapeAnalysis;
+
+  // =================================================
   // เฉพาะหัวข้อที่แสดงตามพื้นที่สแกน
   // =================================================
 
@@ -679,6 +687,7 @@ class _AiVisionPageState
       coreReceived = false;
       pipelineResult = null;
       objectDetection = null;
+      shapeAnalysis = null;
     });
 
     try {
@@ -706,6 +715,23 @@ class _AiVisionPageState
       );
 
       // ---------------------------------------------
+      // CORE SHAPE ANALYZER
+      // ---------------------------------------------
+
+      const shapeAnalyzer =
+          ShapeAnalyzer();
+
+      final shapeResult =
+          await shapeAnalyzer.analyze(
+        imagePath:
+            widget.imageFile.path,
+        left: detected.left,
+        top: detected.top,
+        right: detected.right,
+        bottom: detected.bottom,
+      );
+
+      // ---------------------------------------------
       // ข้อมูลที่ Core ตรวจพบ
       // ---------------------------------------------
 
@@ -722,6 +748,16 @@ class _AiVisionPageState
             '${detected.bottom.toStringAsFixed(3)}',
         'สัดส่วนพื้นที่: '
             '${detected.objectRatio.toStringAsFixed(3)}',
+        'รูปทรงเบื้องต้น: '
+            '${shapeResult.shape}',
+        'อัตราส่วนกว้าง/สูง: '
+            '${shapeResult.aspectRatio.toStringAsFixed(3)}',
+        'พื้นที่วัตถุในกรอบ: '
+            '${(shapeResult.fillRatio * 100).toStringAsFixed(1)}%',
+        'ความไม่สม่ำเสมอของขอบ: '
+            '${shapeResult.edgeIrregularity.toStringAsFixed(3)}',
+        'ข้อสังเกต: '
+            '${shapeResult.observation}',
       ].join('\n');
 
       final scan = ScanResult(
@@ -762,6 +798,7 @@ class _AiVisionPageState
       setState(() {
         pipelineResult = result;
         objectDetection = detected;
+        shapeAnalysis = shapeResult;
         scanned = true;
         coreReceived = true;
       });
@@ -770,7 +807,7 @@ class _AiVisionPageState
           .showSnackBar(
         const SnackBar(
           content: Text(
-            'Core ตรวจภาพเสร็จแล้ว',
+            'Core ตรวจภาพและวิเคราะห์รูปทรงเบื้องต้นเสร็จแล้ว',
           ),
         ),
       );
@@ -781,6 +818,7 @@ class _AiVisionPageState
           coreReceived = false;
           pipelineResult = null;
           objectDetection = null;
+          shapeAnalysis = null;
         });
 
         ScaffoldMessenger.of(context)
@@ -877,6 +915,35 @@ class _AiVisionPageState
         'ขวา ${detected.right.toStringAsFixed(3)}, '
         'ล่าง ${detected.bottom.toStringAsFixed(3)}, '
         'พื้นที่ ${detected.objectRatio.toStringAsFixed(3)}',
+      );
+    }
+
+    final shape = shapeAnalysis;
+
+    if (shape != null) {
+      output.add(
+        'Core วิเคราะห์รูปทรงเบื้องต้น: '
+        '${shape.shape}',
+      );
+
+      output.add(
+        'Core อัตราส่วนกว้าง/สูง: '
+        '${shape.aspectRatio.toStringAsFixed(3)}',
+      );
+
+      output.add(
+        'Core พื้นที่วัตถุในกรอบ: '
+        '${(shape.fillRatio * 100).toStringAsFixed(1)}%',
+      );
+
+      output.add(
+        'Core ความไม่สม่ำเสมอของขอบ: '
+        '${shape.edgeIrregularity.toStringAsFixed(3)}',
+      );
+
+      output.add(
+        'Core ข้อสังเกต: '
+        '${shape.observation}',
       );
     }
 
@@ -1008,6 +1075,7 @@ class _AiVisionPageState
 
     setState(() {
       objectDetection = null;
+      shapeAnalysis = null;
       pipelineResult = null;
       scanned = false;
       coreReceived = false;
@@ -1025,6 +1093,7 @@ class _AiVisionPageState
             <String>[];
 
     final detected = objectDetection;
+    final shape = shapeAnalysis;
 
     return Scaffold(
       appBar: AppBar(
@@ -1235,6 +1304,88 @@ class _AiVisionPageState
                     'สัดส่วนพื้นที่: '
                     '${detected.objectRatio.toStringAsFixed(3)}',
                   ),
+
+                  // ---------------------------------
+                  // SHAPE RESULT
+                  // ---------------------------------
+
+                  if (shape != null) ...[
+                    const SizedBox(height: 12),
+
+                    Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.all(12),
+                      decoration:
+                          BoxDecoration(
+                        border: Border.all(
+                          color: Colors.blue,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(
+                          8,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'การวิเคราะห์รูปทรงเบื้องต้น',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          Text(
+                            'รูปทรง: ${shape.shape}',
+                            style:
+                                const TextStyle(
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          Text(
+                            'อัตราส่วนกว้าง/สูง: '
+                            '${shape.aspectRatio.toStringAsFixed(3)}',
+                          ),
+
+                          Text(
+                            'พื้นที่วัตถุในกรอบ: '
+                            '${(shape.fillRatio * 100).toStringAsFixed(1)}%',
+                          ),
+
+                          Text(
+                            'ความไม่สม่ำเสมอของขอบ: '
+                            '${shape.edgeIrregularity.toStringAsFixed(3)}',
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          Text(
+                            shape.observation,
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          const Text(
+                            'ผลนี้เป็นการวิเคราะห์รูปทรงเบื้องต้น '
+                            'ยังไม่ใช่การระบุว่าเป็นพระหรือเหรียญ',
+                            style: TextStyle(
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 12),
 
