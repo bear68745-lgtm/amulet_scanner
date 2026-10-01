@@ -3,12 +3,12 @@ import 'dart:math' as math;
 
 import 'package:image/image.dart' as img;
 
-/// ผลการทดลองวิเคราะห์รูปทรงของวัตถุ
+/// ผลการวิเคราะห์รูปทรงของวัตถุ
 ///
 /// หมายเหตุ:
-/// - ยังไม่ใช่การจำแนกว่าเป็นพระหรือเหรียญ
+/// - เป็นการวิเคราะห์รูปทรงจากภาพเท่านั้น
+/// - ยังไม่จำแนกว่าเป็นพระหรือเหรียญ
 /// - ยังไม่ตัดสินแท้/เก๊
-/// - ใช้เฉพาะข้อมูลภาพชั่วคราว
 /// - ไม่สร้างหรือบันทึกภาพใหม่
 class ShapeAnalysisResult {
   final String shape;
@@ -17,6 +17,8 @@ class ShapeAnalysisResult {
   final double aspectRatio;
   final double fillRatio;
   final double edgeIrregularity;
+  final double circularity;
+  final double radialConsistency;
   final String observation;
 
   const ShapeAnalysisResult({
@@ -26,6 +28,8 @@ class ShapeAnalysisResult {
     required this.aspectRatio,
     required this.fillRatio,
     required this.edgeIrregularity,
+    required this.circularity,
+    required this.radialConsistency,
     required this.observation,
   });
 
@@ -37,6 +41,8 @@ class ShapeAnalysisResult {
       'aspectRatio': aspectRatio,
       'fillRatio': fillRatio,
       'edgeIrregularity': edgeIrregularity,
+      'circularity': circularity,
+      'radialConsistency': radialConsistency,
       'observation': observation,
     };
   }
@@ -101,7 +107,9 @@ class ShapeAnalyzer {
     final objectHeight = cropBottom - cropTop;
 
     if (objectWidth < 5 || objectHeight < 5) {
-      throw Exception('พื้นที่วัตถุเล็กเกินไปสำหรับวิเคราะห์รูปทรง');
+      throw Exception(
+        'พื้นที่วัตถุเล็กเกินไปสำหรับวิเคราะห์รูปทรง',
+      );
     }
 
     final borderColor = _estimateLocalBorderColor(
@@ -121,6 +129,11 @@ class ShapeAnalyzer {
       borderColor,
     );
 
+    final mask = <bool>[
+      for (int i = 0; i < objectWidth * objectHeight; i++)
+        false,
+    ];
+
     int detectedPixels = 0;
 
     int minX = cropRight;
@@ -138,6 +151,13 @@ class ShapeAnalyzer {
         );
 
         if (distance >= threshold) {
+          final localX = x - cropLeft;
+          final localY = y - cropTop;
+
+          mask[
+            localY * objectWidth + localX
+          ] = true;
+
           detectedPixels++;
 
           if (x < minX) minX = x;
@@ -156,7 +176,10 @@ class ShapeAnalyzer {
         aspectRatio: 0,
         fillRatio: 0,
         edgeIrregularity: 1,
-        observation: 'Core ไม่สามารถแยกพื้นที่วัตถุออกจากพื้นหลังได้ชัดเจน',
+        circularity: 0,
+        radialConsistency: 0,
+        observation:
+            'Core ไม่สามารถแยกพื้นที่วัตถุออกจากพื้นหลังได้ชัดเจน',
       );
     }
 
@@ -178,26 +201,49 @@ class ShapeAnalyzer {
     final heightRatio =
         detectedHeight / image.height;
 
-    final edgeIrregularity = _estimateEdgeIrregularity(
+    final centroid = _calculateCentroid(
       image,
-      minX,
-      minY,
-      maxX,
-      maxY,
-      borderColor,
+      mask,
+      objectWidth,
+      objectHeight,
+      cropLeft,
+      cropTop,
+    );
+
+    final radial = _analyzeRadialShape(
+      image,
+      mask,
+      objectWidth,
+      objectHeight,
+      cropLeft,
+      cropTop,
+      centroid,
       threshold,
     );
 
+    final edgeIrregularity =
+        radial.edgeIrregularity;
+
+    final circularity =
+        radial.circularity;
+
+    final radialConsistency =
+        radial.radialConsistency;
+
     final shape = _classifyShape(
-      aspectRatio,
-      fillRatio,
-      edgeIrregularity,
+      aspectRatio: aspectRatio,
+      fillRatio: fillRatio,
+      edgeIrregularity: edgeIrregularity,
+      circularity: circularity,
+      radialConsistency: radialConsistency,
     );
 
     final observation = _buildObservation(
-      aspectRatio,
-      fillRatio,
-      edgeIrregularity,
+      aspectRatio: aspectRatio,
+      fillRatio: fillRatio,
+      edgeIrregularity: edgeIrregularity,
+      circularity: circularity,
+      radialConsistency: radialConsistency,
     );
 
     return ShapeAnalysisResult(
@@ -207,6 +253,8 @@ class ShapeAnalyzer {
       aspectRatio: aspectRatio,
       fillRatio: fillRatio,
       edgeIrregularity: edgeIrregularity,
+      circularity: circularity,
+      radialConsistency: radialConsistency,
       observation: observation,
     );
   }
@@ -329,140 +377,249 @@ class ShapeAnalyzer {
     );
   }
 
-  double _estimateEdgeIrregularity(
+  _Centroid _calculateCentroid(
     img.Image image,
-    int left,
-    int top,
-    int right,
-    int bottom,
-    List<double> borderColor,
-    double threshold,
+    List<bool> mask,
+    int width,
+    int height,
+    int cropLeft,
+    int cropTop,
   ) {
-    final width = right - left + 1;
-    final height = bottom - top + 1;
+    double totalX = 0;
+    double totalY = 0;
+    int count = 0;
 
-    if (width < 5 || height < 5) {
-      return 1;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        if (!mask[y * width + x]) {
+          continue;
+        }
+
+        totalX += cropLeft + x;
+        totalY += cropTop + y;
+        count++;
+      }
     }
 
-    final samples = <double>[];
+    if (count == 0) {
+      return _Centroid(
+        x: cropLeft + width / 2,
+        y: cropTop + height / 2,
+      );
+    }
 
-    const sampleCount = 24;
+    return _Centroid(
+      x: totalX / count,
+      y: totalY / count,
+    );
+  }
+
+  _RadialShapeResult _analyzeRadialShape(
+    img.Image image,
+    List<bool> mask,
+    int width,
+    int height,
+    int cropLeft,
+    int cropTop,
+    _Centroid centroid,
+    double threshold,
+  ) {
+    const sampleCount = 72;
+
+    final radii = <double>[];
 
     for (int i = 0; i < sampleCount; i++) {
       final angle =
           (2 * math.pi * i) / sampleCount;
 
-      final cx =
-          (left + right) / 2;
+      double radius = 0;
 
-      final cy =
-          (top + bottom) / 2;
+      final maxRadius =
+          math.sqrt(
+            width * width +
+                height * height,
+          );
 
-      final radius =
-          math.min(width, height) / 2;
+      for (double r = 1; r <= maxRadius; r += 1) {
+        final x =
+            (centroid.x +
+                    math.cos(angle) * r)
+                .round();
 
-      final x =
-          (cx + math.cos(angle) * radius)
-              .round();
+        final y =
+            (centroid.y +
+                    math.sin(angle) * r)
+                .round();
 
-      final y =
-          (cy + math.sin(angle) * radius)
-              .round();
+        final localX =
+            x - cropLeft;
 
-      final px = _clampInt(
-        x,
-        left,
-        right,
-      );
+        final localY =
+            y - cropTop;
 
-      final py = _clampInt(
-        y,
-        top,
-        bottom,
-      );
+        if (localX < 0 ||
+            localX >= width ||
+            localY < 0 ||
+            localY >= height) {
+          break;
+        }
 
-      final pixel =
-          image.getPixel(px, py);
+        if (!mask[
+            localY * width + localX]) {
+          break;
+        }
 
-      final distance =
-          _colorDistance(
-        pixel,
-        borderColor,
-      );
+        radius = r;
+      }
 
-      samples.add(
-        distance >= threshold
-            ? 1.0
-            : 0.0,
+      radii.add(radius);
+    }
+
+    final validRadii =
+        radii.where((value) => value > 0).toList();
+
+    if (validRadii.length < sampleCount * 0.50) {
+      return const _RadialShapeResult(
+        circularity: 0,
+        radialConsistency: 0,
+        edgeIrregularity: 1,
       );
     }
 
-    if (samples.isEmpty) {
-      return 1;
+    final averageRadius =
+        validRadii.reduce((a, b) => a + b) /
+            validRadii.length;
+
+    if (averageRadius <= 0) {
+      return const _RadialShapeResult(
+        circularity: 0,
+        radialConsistency: 0,
+        edgeIrregularity: 1,
+      );
     }
+
+    double variance = 0;
+
+    for (final radius in validRadii) {
+      final difference =
+          radius - averageRadius;
+
+      variance +=
+          difference * difference;
+    }
+
+    variance /= validRadii.length;
+
+    final standardDeviation =
+        math.sqrt(variance);
+
+    final coefficient =
+        standardDeviation / averageRadius;
+
+    final radialConsistency =
+        (1 - coefficient)
+            .clamp(0.0, 1.0);
+
+    final minRadius =
+        validRadii.reduce(math.min);
+
+    final maxRadius =
+        validRadii.reduce(math.max);
+
+    final radiusRatio =
+        minRadius / maxRadius;
+
+    final circularity =
+        radiusRatio
+            .clamp(0.0, 1.0);
 
     double changes = 0;
 
-    for (int i = 0; i < samples.length; i++) {
-      final next =
-          samples[(i + 1) % samples.length];
+    for (int i = 0;
+        i < validRadii.length;
+        i++) {
+      final current =
+          validRadii[i];
 
-      if (samples[i] != next) {
+      final next =
+          validRadii[
+              (i + 1) %
+                  validRadii.length];
+
+      final difference =
+          (current - next).abs();
+
+      if (difference >
+          averageRadius * 0.18) {
         changes++;
       }
     }
 
-    return (changes / samples.length)
-        .clamp(0.0, 1.0);
+    final edgeIrregularity =
+        (changes / validRadii.length)
+            .clamp(0.0, 1.0);
+
+    return _RadialShapeResult(
+      circularity: circularity,
+      radialConsistency: radialConsistency,
+      edgeIrregularity: edgeIrregularity,
+    );
   }
 
-  String _classifyShape(
-    double aspectRatio,
-    double fillRatio,
-    double edgeIrregularity,
-  ) {
+  String _classifyShape({
+    required double aspectRatio,
+    required double fillRatio,
+    required double edgeIrregularity,
+    required double circularity,
+    required double radialConsistency,
+  }) {
     final ratio =
         aspectRatio < 1
             ? 1 / aspectRatio
             : aspectRatio;
 
-    // ยังไม่พยายามจำแนกรูปร่างเฉพาะทาง
-    // เช่น เสมา / ใบโพธิ์ / เหรียญ
-    // เพราะต้องมีข้อมูลตัวอย่างจริงก่อน
+    // ยังไม่เรียกชื่อเฉพาะทาง เช่น เสมา
+    // หรือใบโพธิ์ เพราะต้องมีตัวอย่างจริง
+    // สำหรับเรียนรู้รูปทรงเหล่านั้นก่อน
 
     if (ratio >= 0.90 &&
         ratio <= 1.10 &&
-        fillRatio >= 0.65 &&
-        fillRatio <= 0.88 &&
-        edgeIrregularity < 0.30) {
+        circularity >= 0.78 &&
+        radialConsistency >= 0.72 &&
+        edgeIrregularity < 0.25) {
       return 'ใกล้เคียงวงกลม';
     }
 
     if (ratio >= 1.15 &&
-        fillRatio >= 0.55 &&
-        fillRatio <= 0.90 &&
-        edgeIrregularity < 0.35) {
+        ratio <= 2.20 &&
+        radialConsistency >= 0.55 &&
+        edgeIrregularity < 0.30) {
       return 'ใกล้เคียงวงรี';
     }
 
-    if (fillRatio >= 0.85 &&
-        edgeIrregularity < 0.25) {
-      return 'ใกล้เคียงสี่เหลี่ยม';
+    if (ratio >= 0.90 &&
+        ratio <= 1.10 &&
+        fillRatio >= 0.75 &&
+        edgeIrregularity < 0.20 &&
+        radialConsistency < 0.72) {
+      return 'ใกล้เคียงทรงหลายเหลี่ยม/สี่เหลี่ยม';
     }
 
-    if (edgeIrregularity >= 0.30) {
+    if (edgeIrregularity >= 0.35 ||
+        radialConsistency < 0.45) {
       return 'รูปทรงไม่สม่ำเสมอ';
     }
 
     return 'รูปทรงอื่น/ยังไม่ชัดเจน';
   }
 
-  String _buildObservation(
-    double aspectRatio,
-    double fillRatio,
-    double edgeIrregularity,
-  ) {
+  String _buildObservation({
+    required double aspectRatio,
+    required double fillRatio,
+    required double edgeIrregularity,
+    required double circularity,
+    required double radialConsistency,
+  }) {
     final ratioText =
         aspectRatio.toStringAsFixed(2);
 
@@ -474,9 +631,19 @@ class ShapeAnalyzer {
         edgeIrregularity
             .toStringAsFixed(2);
 
+    final circularityText =
+        circularity
+            .toStringAsFixed(2);
+
+    final radialText =
+        radialConsistency
+            .toStringAsFixed(2);
+
     return 'อัตราส่วนกว้าง/สูง $ratioText, '
         'พื้นที่วัตถุภายในกรอบประมาณ $fillText%, '
-        'ความไม่สม่ำเสมอของขอบ $edgeText';
+        'ความไม่สม่ำเสมอของขอบ $edgeText, '
+        'ความสม่ำเสมอรอบศูนย์กลาง $radialText, '
+        'ความใกล้เคียงวงกลม $circularityText';
   }
 
   int _clampInt(
@@ -494,4 +661,26 @@ class ShapeAnalyzer {
 
     return value;
   }
+}
+
+class _Centroid {
+  final double x;
+  final double y;
+
+  const _Centroid({
+    required this.x,
+    required this.y,
+  });
+}
+
+class _RadialShapeResult {
+  final double circularity;
+  final double radialConsistency;
+  final double edgeIrregularity;
+
+  const _RadialShapeResult({
+    required this.circularity,
+    required this.radialConsistency,
+    required this.edgeIrregularity,
+  });
 }
