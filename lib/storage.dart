@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'scan_data.dart';
 
+import 'core/shape_analyzer.dart';
 // =====================================================
 // STORAGE
 // =====================================================
