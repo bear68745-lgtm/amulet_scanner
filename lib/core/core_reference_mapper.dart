@@ -177,4 +177,3 @@ class CorePipeline {
   }
 }
 
-ขั้นต่อไป อย่าเพิ่งแก้ไฟล์อื่น ครับ ให้ส่งไฟล์ "core/core_reference_mapper.dart" ตัวปัจจุบันมา ผมจะตรวจจากโค้ดจริงแล้วแก้ต่อให้ตรงกับ "core_pipeline.dart" นี้ครับ
