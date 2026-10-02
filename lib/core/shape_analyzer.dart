@@ -73,31 +73,84 @@ const List<CoinShapeSymbol> coinShapeSymbols = [
 ];
 
 // ============================================================
-// โครงร่างของรุ่น
+// จุดของเส้นโครงร่างจริง
 //
-// radialProfile
-// = ระยะจากจุดศูนย์กลางไปยังขอบนอกของวัตถุ
+// x / y เป็นค่าที่ normalize แล้ว
+// โดยจุดทั้งหมดเรียงตามแนวเส้นขอบของวัตถุ
 //
-// ข้อมูลนี้เป็น "ลักษณะโครงสร้าง"
+// ไม่ใช่ radial point
 // ไม่ใช่ตำหนิ
 // ไม่ใช่ข้อมูลผิว
-// ไม่ใช่ข้อมูลพระ
-// ไม่ใช่การตัดสินแท้ / เก๊
+// ============================================================
+
+class ShapeContourPoint {
+  final double x;
+  final double y;
+
+  const ShapeContourPoint({
+    required this.x,
+    required this.y,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'x': x,
+      'y': y,
+    };
+  }
+
+  factory ShapeContourPoint.fromMap(
+    Map<String, dynamic> map,
+  ) {
+    return ShapeContourPoint(
+      x: _toDouble(map['x']),
+      y: _toDouble(map['y']),
+    );
+  }
+}
+
+// ============================================================
+// โครงร่างของรุ่น
+//
+// contour
+// = เส้นขอบจริงที่สกัดจากภาพอ้างอิง
+//
+// จุดจะเรียงตามแนวเส้นขอบ
+// ไม่บังคับจำนวนจุดตายตัว
+//
+// radialProfile
+// ยังคงไว้ชั่วคราวเพื่อ compatibility กับโค้ดเดิม
+// แต่จะไม่ใช่หน่วยความจำหลักอีกต่อไป
 // ============================================================
 
 class ShapeOutlineSymbol {
   final String name;
 
+  final List<ShapeContourPoint> contour;
+
+  // ----------------------------------------------------------
+  // เก็บไว้ชั่วคราวเพื่อไม่ให้ไฟล์อื่นที่ยังเรียก property นี้
+  // compile error ระหว่างเปลี่ยนระบบ
+  //
+  // ระบบใหม่จะใช้ contour เป็นหลัก
+  // ----------------------------------------------------------
+
   final List<double> radialProfile;
 
   const ShapeOutlineSymbol({
     required this.name,
-    required this.radialProfile,
+    this.contour = const [],
+    this.radialProfile = const [],
   });
+
+  bool get hasContour => contour.length >= 3;
 
   Map<String, dynamic> toMap() {
     return {
       'name': name,
+      'contour': contour
+          .map((point) => point.toMap())
+          .toList(),
       'radialProfile': radialProfile,
     };
   }
@@ -105,6 +158,19 @@ class ShapeOutlineSymbol {
   factory ShapeOutlineSymbol.fromMap(
     Map<String, dynamic> map,
   ) {
+    final rawContour = map['contour'];
+
+    final contour = rawContour is List
+        ? rawContour
+            .whereType<Map>()
+            .map(
+              (value) => ShapeContourPoint.fromMap(
+                Map<String, dynamic>.from(value),
+              ),
+            )
+            .toList()
+        : <ShapeContourPoint>[];
+
     final rawProfile = map['radialProfile'];
 
     final profile = rawProfile is List
@@ -116,6 +182,7 @@ class ShapeOutlineSymbol {
 
     return ShapeOutlineSymbol(
       name: map['name']?.toString() ?? '',
+      contour: contour,
       radialProfile: profile,
     );
   }
@@ -125,7 +192,7 @@ class ShapeOutlineSymbol {
 // ผลการเปรียบเทียบโครงร่าง
 //
 // ใช้บอกความสัมพันธ์ของโครงร่างที่สแกน
-// กับโครงร่างอ้างอิงของรุ่น
+// กับโครงร่างอ้างอิง
 //
 // ไม่ใช่คะแนนความแท้
 // ============================================================
@@ -158,11 +225,11 @@ class ShapeOutlineComparison {
 // 1. อ่านภาพชั่วคราว
 // 2. ใช้กรอบวัตถุที่ตรวจพบ
 // 3. แยกวัตถุออกจากพื้นหลัง
-// 4. หาจุดศูนย์กลาง
-// 5. เดินรัศมีรอบวัตถุ
-// 6. หา "ขอบนอกสุด"
-// 7. normalize เป็น radialProfile
-// 8. เปรียบเทียบกับโครงร่างอ้างอิงได้
+// 4. เลือกวัตถุหลัก
+// 5. หาเส้นขอบจริง
+// 6. เดินตามเส้นขอบจริง
+// 7. Normalize contour
+// 8. เปรียบเทียบ contour กับ Reference
 //
 // ไม่มี:
 //
@@ -180,6 +247,16 @@ class ShapeAnalyzer {
 
   // ==========================================================
   // สกัดโครงร่างจากภาพจริง
+  //
+  // ระบบใหม่:
+  //
+  // ภาพ
+  // → mask
+  // → วัตถุหลัก
+  // → boundary
+  // → contour จริง
+  //
+  // ไม่ใช้จำนวนจุดคงที่
   // ==========================================================
 
   Future<ShapeOutlineSymbol?> extractOutlineSymbol({
@@ -242,133 +319,77 @@ class ShapeAnalyzer {
       threshold,
     );
 
-    final cleanedMask = _removeSmallNoise(mask);
+    // --------------------------------------------------------
+    // ลด noise
+    // --------------------------------------------------------
 
-    final centroid =
-        _calculateCentroid(cleanedMask);
+    final cleanedMask =
+        _removeSmallNoise(mask);
 
-    if (centroid == null) {
+    // --------------------------------------------------------
+    // เลือกวัตถุหลัก
+    //
+    // ป้องกันไม่ให้จุดรบกวนที่อยู่นอกวัตถุ
+    // กลายเป็นส่วนหนึ่งของ contour
+    // --------------------------------------------------------
+
+    final mainObject =
+        _keepLargestComponent(cleanedMask);
+
+    // --------------------------------------------------------
+    // หา contour จริง
+    // --------------------------------------------------------
+
+    final contourPixels =
+        _traceContour(mainObject);
+
+    if (contourPixels.length < 10) {
       return null;
     }
 
     // --------------------------------------------------------
-    // สกัดขอบนอก
+    // Normalize contour
     //
-    // ใช้หลายทิศทางรอบวัตถุ
-    // และเลือกจุดที่ไกลที่สุดจากศูนย์กลาง
-    //
-    // จึงไม่หยุดเมื่อเจอรายละเอียดภายในเหรียญ
+    // รักษารูปร่างจริงเอาไว้
+    // เพียงตัดผลกระทบจากตำแหน่งและขนาดภาพ
     // --------------------------------------------------------
 
-    const sampleCount = 72;
-
-    final profile = <double>[];
-
-    final maxRadius = math.sqrt(
-      math.pow(crop.width, 2) +
-          math.pow(crop.height, 2),
+    final normalizedContour =
+        _normalizeContour(
+      contourPixels,
     );
 
-    for (int i = 0; i < sampleCount; i++) {
-      final angle =
-          (2 * math.pi * i) / sampleCount;
-
-      final dx = math.cos(angle);
-      final dy = math.sin(angle);
-
-      double? farthestRadius;
-
-      for (
-        double radius = 0;
-        radius <= maxRadius;
-        radius += 1
-      ) {
-        final x =
-            centroid.x + (dx * radius);
-
-        final y =
-            centroid.y + (dy * radius);
-
-        final ix = x.round();
-        final iy = y.round();
-
-        if (ix < 0 ||
-            iy < 0 ||
-            ix >= crop.width ||
-            iy >= crop.height) {
-          break;
-        }
-
-        if (cleanedMask[iy][ix]) {
-          farthestRadius = radius;
-        }
-      }
-
-      profile.add(
-        farthestRadius ?? 0,
-      );
-    }
-
-    // --------------------------------------------------------
-    // ตรวจสอบว่ามีข้อมูลขอบเพียงพอ
-    // --------------------------------------------------------
-
-    final validCount =
-        profile.where((value) => value > 0).length;
-
-    if (validCount < sampleCount * 0.80) {
+    if (normalizedContour.length < 10) {
       return null;
     }
-
-    // --------------------------------------------------------
-    // เติมค่าที่หายไปจากค่าข้างเคียง
-    // --------------------------------------------------------
-
-    final completedProfile =
-        _fillMissingProfileValues(profile);
-
-    // --------------------------------------------------------
-    // ทำให้ค่าทั้งหมดอยู่ในมาตรฐานเดียวกัน
-    // --------------------------------------------------------
-
-    final maxProfile =
-        completedProfile.reduce(math.max);
-
-    if (maxProfile <= 0) {
-      return null;
-    }
-
-    final normalized = completedProfile
-        .map(
-          (value) => value / maxProfile,
-        )
-        .toList();
 
     return ShapeOutlineSymbol(
       name: shapeName,
-      radialProfile: normalized,
+      contour: normalizedContour,
+      radialProfile: const [],
     );
   }
 
   // ==========================================================
-  // เปรียบเทียบโครงร่างที่สแกนกับโครงร่างอ้างอิง
+  // เปรียบเทียบ contour
   //
-  // ผลลัพธ์มีเพียง:
+  // ระบบใหม่ไม่เทียบ radialProfile
   //
-  // - ตรงกับโครงร่างอ้างอิง
-  // - ใกล้เคียงโครงร่างอ้างอิง
-  // - แตกต่างจากโครงร่างอ้างอิง
-  // - ยังไม่มีโครงร่างอ้างอิง
+  // จะดูระยะของเส้น contour สองเส้น
+  // แบบ symmetric:
   //
-  // ไม่ใช่ผลแท้ / เก๊
+  // scanned → reference
+  // reference → scanned
+  //
+  // เพื่อไม่ให้ฝ่ายใดฝ่ายหนึ่งได้เปรียบ
   // ==========================================================
 
   ShapeOutlineComparison compareOutline(
     ShapeOutlineSymbol scanned,
     ShapeOutlineSymbol reference,
   ) {
-    if (scanned.radialProfile.isEmpty ||
-        reference.radialProfile.isEmpty) {
+    if (!scanned.hasContour ||
+        !reference.hasContour) {
       return const ShapeOutlineComparison(
         hasReference: false,
         difference: 0,
@@ -376,36 +397,45 @@ class ShapeAnalyzer {
       );
     }
 
-    final count = math.min(
-      scanned.radialProfile.length,
-      reference.radialProfile.length,
+    final scannedPoints = scanned.contour;
+    final referencePoints = reference.contour;
+
+    if (scannedPoints.length < 3 ||
+        referencePoints.length < 3) {
+      return const ShapeOutlineComparison(
+        hasReference: false,
+        difference: 0,
+        result: 'ยังไม่มีโครงร่างอ้างอิง',
+      );
+    }
+
+    final forward =
+        _averageNearestDistance(
+      scannedPoints,
+      referencePoints,
     );
 
-    if (count == 0) {
-      return const ShapeOutlineComparison(
-        hasReference: false,
-        difference: 0,
-        result: 'ยังไม่มีโครงร่างอ้างอิง',
-      );
-    }
+    final backward =
+        _averageNearestDistance(
+      referencePoints,
+      scannedPoints,
+    );
 
-    double totalDifference = 0;
+    final difference =
+        (forward + backward) / 2;
 
-    for (int i = 0; i < count; i++) {
-      final a = scanned.radialProfile[i];
-      final b = reference.radialProfile[i];
-
-      totalDifference += (a - b).abs();
-    }
-
-    final averageDifference =
-        totalDifference / count;
+    // --------------------------------------------------------
+    // ค่า difference เป็น normalized distance
+    //
+    // เกณฑ์เริ่มต้นสำหรับการทดลอง
+    // ยังสามารถปรับจากข้อมูลจริงภายหลังได้
+    // --------------------------------------------------------
 
     String result;
 
-    if (averageDifference <= 0.035) {
+    if (difference <= 0.035) {
       result = 'ตรงกับโครงร่างอ้างอิง';
-    } else if (averageDifference <= 0.080) {
+    } else if (difference <= 0.080) {
       result = 'ใกล้เคียงโครงร่างอ้างอิง';
     } else {
       result = 'แตกต่างจากโครงร่างอ้างอิง';
@@ -413,15 +443,39 @@ class ShapeAnalyzer {
 
     return ShapeOutlineComparison(
       hasReference: true,
-      difference: averageDifference,
+      difference: difference,
       result: result,
     );
   }
 
   // ==========================================================
-  // แปลง radialProfile เป็นข้อความ
+  // แปลง contour เป็นข้อความ
   //
-  // ใช้สำหรับเก็บในฐานข้อมูลปัจจุบัน
+  // ใช้สำหรับตรวจสอบ / debug ในระยะนี้
+  //
+  // รูปแบบ:
+  // x,y|x,y|x,y...
+  // ==========================================================
+
+  String contourToText(
+    List<ShapeContourPoint> contour,
+  ) {
+    return contour
+        .map(
+          (point) =>
+              '${point.x.toStringAsFixed(5)},'
+              '${point.y.toStringAsFixed(5)}',
+        )
+        .join('|');
+  }
+
+  // ==========================================================
+  // compatibility กับระบบเดิม
+  //
+  // หากส่วนอื่นของแอปยังเรียก profileToText()
+  // จะไม่ทำให้ compile error
+  //
+  // แต่ระบบ contour ใหม่ควรใช้ contourToText()
   // ==========================================================
 
   String profileToText(
@@ -655,9 +709,6 @@ class ShapeAnalyzer {
 
   // ==========================================================
   // ลดจุดรบกวนเล็ก ๆ
-  //
-  // ไม่สร้างรูปทรงใหม่
-  // เพียงลดจุดที่เกิดจาก noise ของภาพ
   // ==========================================================
 
   List<List<bool>> _removeSmallNoise(
@@ -676,16 +727,32 @@ class ShapeAnalyzer {
       (y) => List<bool>.from(source[y]),
     );
 
-    for (int y = 1; y < height - 1; y++) {
-      for (int x = 1; x < width - 1; x++) {
+    for (
+      int y = 1;
+      y < height - 1;
+      y++
+    ) {
+      for (
+        int x = 1;
+        x < width - 1;
+        x++
+      ) {
         if (!source[y][x]) {
           continue;
         }
 
         int neighbours = 0;
 
-        for (int dy = -1; dy <= 1; dy++) {
-          for (int dx = -1; dx <= 1; dx++) {
+        for (
+          int dy = -1;
+          dy <= 1;
+          dy++
+        ) {
+          for (
+            int dx = -1;
+            dx <= 1;
+            dx++
+          ) {
             if (dx == 0 && dy == 0) {
               continue;
             }
@@ -706,62 +773,542 @@ class ShapeAnalyzer {
   }
 
   // ==========================================================
-  // เติมค่าที่หายไปใน radialProfile
+  // เลือก connected component ที่ใหญ่ที่สุด
+  //
+  // เพื่อให้ contour เป็นของวัตถุหลักจริง ๆ
   // ==========================================================
 
-  List<double> _fillMissingProfileValues(
-    List<double> profile,
+  List<List<bool>> _keepLargestComponent(
+    List<List<bool>> source,
   ) {
-    final result = List<double>.from(
-      profile,
+    final height = source.length;
+
+    if (height == 0) {
+      return source;
+    }
+
+    final width = source.first.length;
+
+    final visited = List.generate(
+      height,
+      (_) => List<bool>.filled(
+        width,
+        false,
+      ),
     );
 
-    for (int i = 0; i < result.length; i++) {
-      if (result[i] > 0) {
+    List<_Pixel>? largest;
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        if (!source[y][x] ||
+            visited[y][x]) {
+          continue;
+        }
+
+        final component = <_Pixel>[];
+
+        final queue = <_Pixel>[
+          _Pixel(x, y),
+        ];
+
+        visited[y][x] = true;
+
+        int index = 0;
+
+        while (index < queue.length) {
+          final current = queue[index++];
+
+          component.add(current);
+
+          for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+              if (dx == 0 && dy == 0) {
+                continue;
+              }
+
+              final nx =
+                  current.x + dx;
+
+              final ny =
+                  current.y + dy;
+
+              if (nx < 0 ||
+                  ny < 0 ||
+                  nx >= width ||
+                  ny >= height) {
+                continue;
+              }
+
+              if (!source[ny][nx] ||
+                  visited[ny][nx]) {
+                continue;
+              }
+
+              visited[ny][nx] = true;
+
+              queue.add(
+                _Pixel(nx, ny),
+              );
+            }
+          }
+        }
+
+        if (largest == null ||
+            component.length >
+                largest.length) {
+          largest = component;
+        }
+      }
+    }
+
+    if (largest == null ||
+        largest.isEmpty) {
+      return List.generate(
+        height,
+        (y) => List<bool>.from(source[y]),
+      );
+    }
+
+    final result = List.generate(
+      height,
+      (_) => List<bool>.filled(
+        width,
+        false,
+      ),
+    );
+
+    for (final pixel in largest) {
+      result[pixel.y][pixel.x] = true;
+    }
+
+    return result;
+  }
+
+  // ==========================================================
+  // Trace contour จริง
+  //
+  // ใช้แนวคิด Moore-neighborhood boundary tracing
+  //
+  // จุดที่ได้จะเดินไปตามขอบของวัตถุ
+  // ไม่ใช่การเลือกจุดตามมุม 72 ทิศทาง
+  // ==========================================================
+
+  List<_Pixel> _traceContour(
+    List<List<bool>> mask,
+  ) {
+    final height = mask.length;
+
+    if (height == 0) {
+      return [];
+    }
+
+    final width = mask.first.length;
+
+    // --------------------------------------------------------
+    // หาจุดเริ่มต้น:
+    // foreground จุดแรกจากบนลงล่าง ซ้ายไปขวา
+    // --------------------------------------------------------
+
+    _Pixel? start;
+
+    for (int y = 0; y < height && start == null; y++) {
+      for (int x = 0; x < width; x++) {
+        if (mask[y][x] &&
+            _isBoundaryPixel(
+              mask,
+              x,
+              y,
+            )) {
+          start = _Pixel(x, y);
+          break;
+        }
+      }
+    }
+
+    if (start == null) {
+      return [];
+    }
+
+    // --------------------------------------------------------
+    // ถ้าวัตถุมีแค่จุดเดียว
+    // --------------------------------------------------------
+
+    if (_countForeground(mask) <= 2) {
+      return [start];
+    }
+
+    // --------------------------------------------------------
+    // Moore tracing
+    // --------------------------------------------------------
+
+    final contour = <_Pixel>[];
+
+    _Pixel current = start;
+    _Pixel previous = _Pixel(
+      start.x - 1,
+      start.y,
+    );
+
+    final firstCurrent = current;
+    final firstPrevious = previous;
+
+    final maxSteps =
+        math.max(
+          width * height * 2,
+          100,
+        );
+
+    for (
+      int step = 0;
+      step < maxSteps;
+      step++
+    ) {
+      contour.add(current);
+
+      final next =
+          _findNextBoundaryPixel(
+        mask,
+        current,
+        previous,
+      );
+
+      if (next == null) {
+        break;
+      }
+
+      final nextCurrent =
+          next.current;
+
+      final nextPrevious =
+          next.previous;
+
+      current = nextCurrent;
+      previous = nextPrevious;
+
+      // ------------------------------------------------------
+      // เงื่อนไขปิด contour
+      //
+      // ต้องกลับมาที่จุดเริ่มต้นพร้อมทิศทางเดิม
+      // ------------------------------------------------------
+
+      if (current.x == firstCurrent.x &&
+          current.y == firstCurrent.y &&
+          previous.x == firstPrevious.x &&
+          previous.y == firstPrevious.y &&
+          contour.length > 8) {
+        break;
+      }
+    }
+
+    // --------------------------------------------------------
+    // ลบจุดซ้ำติดกัน
+    // --------------------------------------------------------
+
+    return _removeConsecutiveDuplicatePoints(
+      contour,
+    );
+  }
+
+  // ==========================================================
+  // หา boundary pixel
+  // ==========================================================
+
+  bool _isBoundaryPixel(
+    List<List<bool>> mask,
+    int x,
+    int y,
+  ) {
+    if (!mask[y][x]) {
+      return false;
+    }
+
+    final height = mask.length;
+    final width = mask.first.length;
+
+    for (int dy = -1; dy <= 1; dy++) {
+      for (int dx = -1; dx <= 1; dx++) {
+        if (dx == 0 && dy == 0) {
+          continue;
+        }
+
+        final nx = x + dx;
+        final ny = y + dy;
+
+        if (nx < 0 ||
+            ny < 0 ||
+            nx >= width ||
+            ny >= height) {
+          return true;
+        }
+
+        if (!mask[ny][nx]) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // ==========================================================
+  // หา pixel ถัดไปบน boundary
+  // ==========================================================
+
+  _BoundaryStep? _findNextBoundaryPixel(
+    List<List<bool>> mask,
+    _Pixel current,
+    _Pixel previous,
+  ) {
+    final directions = <_Pixel>[
+      const _Pixel(-1, -1),
+      const _Pixel(0, -1),
+      const _Pixel(1, -1),
+      const _Pixel(1, 0),
+      const _Pixel(1, 1),
+      const _Pixel(0, 1),
+      const _Pixel(-1, 1),
+      const _Pixel(-1, 0),
+    ];
+
+    final dx = previous.x - current.x;
+    final dy = previous.y - current.y;
+
+    int startIndex = 0;
+
+    for (int i = 0; i < directions.length; i++) {
+      if (directions[i].x == dx &&
+          directions[i].y == dy) {
+        startIndex = i;
+        break;
+      }
+    }
+
+    final height = mask.length;
+    final width = mask.first.length;
+
+    // --------------------------------------------------------
+    // เริ่มค้นจากเพื่อนบ้านถัดจาก previous
+    // เดินรอบ current
+    // --------------------------------------------------------
+
+    for (int offset = 1;
+        offset <= directions.length;
+        offset++) {
+      final index =
+          (startIndex + offset) %
+              directions.length;
+
+      final direction =
+          directions[index];
+
+      final nx =
+          current.x + direction.x;
+
+      final ny =
+          current.y + direction.y;
+
+      if (nx < 0 ||
+          ny < 0 ||
+          nx >= width ||
+          ny >= height) {
         continue;
       }
 
-      double? previous;
-      double? next;
+      if (!mask[ny][nx]) {
+        continue;
+      }
 
-      for (
-        int step = 1;
-        step <= result.length;
-        step++
-      ) {
-        final index =
-            (i - step + result.length) %
-                result.length;
+      // ------------------------------------------------------
+      // จุดก่อนหน้าของ next คือ pixel ที่อยู่ก่อนหน้า
+      // next ในการเดินรอบ neighborhood
+      // ------------------------------------------------------
 
-        if (result[index] > 0) {
-          previous = result[index];
-          break;
+      final previousDirection =
+          directions[
+            (index - 1 +
+                    directions.length) %
+                directions.length
+          ];
+
+      final newPrevious = _Pixel(
+        current.x +
+            previousDirection.x,
+        current.y +
+            previousDirection.y,
+      );
+
+      return _BoundaryStep(
+        current: _Pixel(nx, ny),
+        previous: newPrevious,
+      );
+    }
+
+    return null;
+  }
+
+  // ==========================================================
+  // Normalize contour
+  //
+  // 1. หา bounding box ของ contour
+  // 2. หาจุดกึ่งกลาง
+  // 3. scale ด้วยขนาดที่ใหญ่ที่สุด
+  //
+  // จึงจำ "รูปร่าง"
+  // มากกว่าจำตำแหน่งในภาพ
+  // ==========================================================
+
+  List<ShapeContourPoint> _normalizeContour(
+    List<_Pixel> contour,
+  ) {
+    if (contour.isEmpty) {
+      return [];
+    }
+
+    double minX = contour.first.x.toDouble();
+    double maxX = contour.first.x.toDouble();
+    double minY = contour.first.y.toDouble();
+    double maxY = contour.first.y.toDouble();
+
+    for (final point in contour) {
+      minX = math.min(
+        minX,
+        point.x.toDouble(),
+      );
+
+      maxX = math.max(
+        maxX,
+        point.x.toDouble(),
+      );
+
+      minY = math.min(
+        minY,
+        point.y.toDouble(),
+      );
+
+      maxY = math.max(
+        maxY,
+        point.y.toDouble(),
+      );
+    }
+
+    final width = maxX - minX;
+    final height = maxY - minY;
+
+    final scale =
+        math.max(width, height);
+
+    if (scale <= 0) {
+      return [];
+    }
+
+    final centerX =
+        (minX + maxX) / 2;
+
+    final centerY =
+        (minY + maxY) / 2;
+
+    return contour.map((point) {
+      return ShapeContourPoint(
+        x: (point.x - centerX) / scale,
+        y: (point.y - centerY) / scale,
+      );
+    }).toList();
+  }
+
+  // ==========================================================
+  // Average nearest distance
+  //
+  // สำหรับแต่ละจุดของ A
+  // หาจุดที่ใกล้ที่สุดใน B
+  //
+  // ไม่บังคับให้ contour สองชุด
+  // มีจำนวนจุดเท่ากัน
+  // ==========================================================
+
+  double _averageNearestDistance(
+    List<ShapeContourPoint> a,
+    List<ShapeContourPoint> b,
+  ) {
+    if (a.isEmpty || b.isEmpty) {
+      return double.infinity;
+    }
+
+    double total = 0;
+
+    for (final pointA in a) {
+      double nearest =
+          double.infinity;
+
+      for (final pointB in b) {
+        final dx =
+            pointA.x - pointB.x;
+
+        final dy =
+            pointA.y - pointB.y;
+
+        final distance =
+            math.sqrt(
+          (dx * dx) +
+              (dy * dy),
+        );
+
+        if (distance < nearest) {
+          nearest = distance;
         }
       }
 
-      for (
-        int step = 1;
-        step <= result.length;
-        step++
-      ) {
-        final index =
-            (i + step) %
-                result.length;
+      total += nearest;
+    }
 
-        if (result[index] > 0) {
-          next = result[index];
-          break;
+    return total / a.length;
+  }
+
+  // ==========================================================
+  // นับ foreground
+  // ==========================================================
+
+  int _countForeground(
+    List<List<bool>> mask,
+  ) {
+    int count = 0;
+
+    for (final row in mask) {
+      for (final value in row) {
+        if (value) {
+          count++;
         }
       }
+    }
 
-      if (previous != null &&
-          next != null) {
-        result[i] =
-            (previous + next) / 2;
-      } else if (previous != null) {
-        result[i] = previous;
-      } else if (next != null) {
-        result[i] = next;
+    return count;
+  }
+
+  // ==========================================================
+  // ลบจุดซ้ำติดกัน
+  // ==========================================================
+
+  List<_Pixel> _removeConsecutiveDuplicatePoints(
+    List<_Pixel> points,
+  ) {
+    if (points.isEmpty) {
+      return [];
+    }
+
+    final result = <_Pixel>[
+      points.first,
+    ];
+
+    for (int i = 1; i < points.length; i++) {
+      final previous =
+          result.last;
+
+      final current =
+          points[i];
+
+      if (previous.x != current.x ||
+          previous.y != current.y) {
+        result.add(current);
       }
     }
 
@@ -786,60 +1333,47 @@ class ShapeAnalyzer {
           (db * db),
     );
   }
-
-  // ==========================================================
-  // จุดศูนย์กลางของ mask
-  // ==========================================================
-
-  _Point? _calculateCentroid(
-    List<List<bool>> mask,
-  ) {
-    double sumX = 0;
-    double sumY = 0;
-
-    int count = 0;
-
-    for (
-      int y = 0;
-      y < mask.length;
-      y++
-    ) {
-      for (
-        int x = 0;
-        x < mask[y].length;
-        x++
-      ) {
-        if (!mask[y][x]) {
-          continue;
-        }
-
-        sumX += x;
-        sumY += y;
-        count++;
-      }
-    }
-
-    if (count == 0) {
-      return null;
-    }
-
-    return _Point(
-      sumX / count,
-      sumY / count,
-    );
-  }
 }
 
 // ============================================================
-// จุด 2 มิติภายใน
+// จุด pixel ภายใน
 // ============================================================
 
-class _Point {
-  final double x;
-  final double y;
+class _Pixel {
+  final int x;
+  final int y;
 
-  const _Point(
+  const _Pixel(
     this.x,
     this.y,
   );
+}
+
+// ============================================================
+// ผลการเดิน contour
+// ============================================================
+
+class _BoundaryStep {
+  final _Pixel current;
+  final _Pixel previous;
+
+  const _BoundaryStep({
+    required this.current,
+    required this.previous,
+  });
+}
+
+// ============================================================
+// Helper แปลงตัวเลข
+// ============================================================
+
+double _toDouble(dynamic value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  return double.tryParse(
+        '${value ?? ''}',
+      ) ??
+      0.0;
 }
