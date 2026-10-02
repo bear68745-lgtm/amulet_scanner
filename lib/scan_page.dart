@@ -1,5 +1,5 @@
+
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -138,9 +138,7 @@ class ScanPage extends StatelessWidget {
                 Icons.document_scanner,
                 size: 80,
               ),
-
               const SizedBox(height: 20),
-
               Text(
                 'องค์อ้างอิง #${reference.referenceNumber}',
                 style: const TextStyle(
@@ -148,18 +146,14 @@ class ScanPage extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 8),
-
               Text(
                 area,
                 style: const TextStyle(
                   fontSize: 20,
                 ),
               ),
-
               const SizedBox(height: 25),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -199,9 +193,7 @@ class ScanPage extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 12),
-
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -215,9 +207,7 @@ class ScanPage extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 25),
-
               const Text(
                 'ภาพใช้ชั่วคราวเพื่ออ่านรายละเอียดเท่านั้น\n'
                 'เมื่อเสร็จแล้วระบบจะลบไฟล์ภาพ\n'
@@ -565,18 +555,25 @@ class DetectionBoxPainter
 }
 
 // =====================================================
-// OUTLINE PROFILE PAINTER
-// แสดงโครงร่างที่ Core สกัดจากภาพ
+// CONTOUR PAINTER
+//
+// แสดงเส้นขอบจริงที่ Core สกัดจากภาพ
+//
+// สีน้ำเงิน = contour ที่สแกน
+// สีส้ม = contour อ้างอิง
+//
+// ตอนนี้ ReferenceData ยังไม่มีช่อง contour
+// ดังนั้น referenceContour จะถูกส่งเข้ามาในอนาคต
 // =====================================================
 
-class OutlineProfilePainter
+class OutlineContourPainter
     extends CustomPainter {
-  final List<double> profile;
-  final List<double>? referenceProfile;
+  final List<ShapeContourPoint> contour;
+  final List<ShapeContourPoint>? referenceContour;
 
-  OutlineProfilePainter({
-    required this.profile,
-    this.referenceProfile,
+  OutlineContourPainter({
+    required this.contour,
+    this.referenceContour,
   });
 
   @override
@@ -584,21 +581,9 @@ class OutlineProfilePainter
     Canvas canvas,
     Size size,
   ) {
-    if (profile.isEmpty) {
+    if (contour.length < 3) {
       return;
     }
-
-    final center = Offset(
-      size.width / 2,
-      size.height / 2,
-    );
-
-    final radius =
-        math.min(
-          size.width,
-          size.height,
-        ) *
-        0.40;
 
     final scannedPaint = Paint()
       ..color = Colors.blue
@@ -616,41 +601,28 @@ class OutlineProfilePainter
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
-    canvas.drawCircle(
-      center,
-      radius,
-      guidePaint,
+    final center = Offset(
+      size.width / 2,
+      size.height / 2,
     );
 
-    canvas.drawLine(
-      Offset(
-        center.dx - radius,
-        center.dy,
-      ),
-      Offset(
-        center.dx + radius,
-        center.dy,
-      ),
-      guidePaint,
-    );
+    final scale =
+        _calculateScale(size);
 
-    canvas.drawLine(
-      Offset(
-        center.dx,
-        center.dy - radius,
-      ),
-      Offset(
-        center.dx,
-        center.dy + radius,
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: center,
+        width: size.width * 0.90,
+        height: size.height * 0.90,
       ),
       guidePaint,
     );
 
     final scannedPath =
-        _buildPath(
-      profile,
+        _buildContourPath(
+      contour,
       center,
-      radius,
+      scale,
     );
 
     if (scannedPath != null) {
@@ -660,13 +632,13 @@ class OutlineProfilePainter
       );
     }
 
-    if (referenceProfile != null &&
-        referenceProfile!.isNotEmpty) {
+    if (referenceContour != null &&
+        referenceContour!.length >= 3) {
       final referencePath =
-          _buildPath(
-        referenceProfile!,
+          _buildContourPath(
+        referenceContour!,
         center,
-        radius,
+        scale,
       );
 
       if (referencePath != null) {
@@ -678,50 +650,54 @@ class OutlineProfilePainter
     }
   }
 
-  Path? _buildPath(
-    List<double> values,
-    Offset center,
-    double radius,
+  double _calculateScale(
+    Size size,
   ) {
-    if (values.length < 3) {
+    final availableWidth =
+        size.width * 0.40;
+
+    final availableHeight =
+        size.height * 0.40;
+
+    return availableWidth <
+            availableHeight
+        ? availableWidth
+        : availableHeight;
+  }
+
+  Path? _buildContourPath(
+    List<ShapeContourPoint> points,
+    Offset center,
+    double scale,
+  ) {
+    if (points.length < 3) {
       return null;
     }
 
     final path = Path();
 
     for (int i = 0;
-        i < values.length;
+        i < points.length;
         i++) {
-      final value =
-          values[i]
-              .clamp(0.0, 1.0)
-              .toDouble();
-
-      final angle =
-          (-math.pi / 2) +
-          (2 * math.pi * i / values.length);
-
-      final r = radius * value;
+      final point = points[i];
 
       final x =
           center.dx +
-          math.cos(angle) * r;
+          point.x * scale;
 
       final y =
           center.dy +
-          math.sin(angle) * r;
-
-      final point = Offset(x, y);
+          point.y * scale;
 
       if (i == 0) {
         path.moveTo(
-          point.dx,
-          point.dy,
+          x,
+          y,
         );
       } else {
         path.lineTo(
-          point.dx,
-          point.dy,
+          x,
+          y,
         );
       }
     }
@@ -733,11 +709,11 @@ class OutlineProfilePainter
 
   @override
   bool shouldRepaint(
-    covariant OutlineProfilePainter oldDelegate,
+    covariant OutlineContourPainter oldDelegate,
   ) {
-    return oldDelegate.profile != profile ||
-        oldDelegate.referenceProfile !=
-            referenceProfile;
+    return oldDelegate.contour != contour ||
+        oldDelegate.referenceContour !=
+            referenceContour;
   }
 }
 
@@ -860,7 +836,7 @@ class _AiVisionPageState
     required ImageObjectDetectionResult detected,
     required ShapeOutlineSymbol? outline,
   }) {
-    final lines = [];
+    final lines = <String>[];
 
     lines.add(
       'Core ตรวจพบวัตถุแตกต่างจากพื้นหลัง',
@@ -884,10 +860,10 @@ class _AiVisionPageState
     );
 
     if (outline != null &&
-        outline.radialProfile.isNotEmpty) {
+        outline.contour.length >= 3) {
       lines.add(
-        'โครงร่างภายนอก: สกัดได้ '
-        '${outline.radialProfile.length} จุด',
+        'โครงร่างภายนอก: สกัดจากเส้นขอบจริง '
+        '${outline.contour.length} จุด',
       );
 
       lines.add(
@@ -1001,8 +977,7 @@ class _AiVisionPageState
             widget.print.coinShape
                     .trim()
                     .isNotEmpty
-                ? widget.print.coinShape
-                    .trim()
+                ? widget.print.coinShape.trim()
                 : 'ไม่ระบุรูปทรง',
         left: detected.left,
         top: detected.top,
@@ -1010,42 +985,22 @@ class _AiVisionPageState
         bottom: detected.bottom,
       );
 
-      ShapeOutlineComparison?
-          comparison;
+      // -------------------------------------------------
+      // ตอนนี้ ReferenceData ยังไม่มี contour
+      //
+      // จึงยังไม่สามารถโหลด contour อ้างอิงใหม่
+      // มาเปรียบเทียบได้
+      //
+      // เราจะทำในขั้น models.dart ต่อไป
+      // -------------------------------------------------
 
-      if (extractedOutline != null &&
-          widget.reference
-              .outlineProfile
-              .isNotEmpty) {
-        final referenceOutline =
-            ShapeOutlineSymbol(
-          name: widget.reference
-                  .outlineName
-                  .trim()
-                  .isNotEmpty
-              ? widget.reference.outlineName
-              : widget.print.coinShape,
-          radialProfile:
-              List<double>.from(
-            widget.reference
-                .outlineProfile,
-          ),
-        );
-
-        comparison =
-            shapeAnalyzer.compareOutline(
-          extractedOutline,
-          referenceOutline,
-        );
-      } else {
-        comparison =
-            const ShapeOutlineComparison(
-          hasReference: false,
-          difference: 0,
-          result:
-              'ยังไม่มีโครงร่างอ้างอิง',
-        );
-      }
+      const comparison =
+          ShapeOutlineComparison(
+        hasReference: false,
+        difference: 0,
+        result:
+            'ยังไม่มีโครงร่างอ้างอิงแบบ contour',
+      );
 
       final observation =
           _buildCoreObservation(
@@ -1061,6 +1016,12 @@ class _AiVisionPageState
       const pipeline =
           CorePipeline();
 
+      // -------------------------------------------------
+      // ไม่ส่ง radial profile ใหม่อีกต่อไป
+      //
+      // contour จะถูกเก็บเข้าระบบในขั้น models/storage
+      // -------------------------------------------------
+
       final result =
           pipeline.process(
         scans: [
@@ -1071,19 +1032,20 @@ class _AiVisionPageState
             widget.reference.referenceNumber,
         createdAt:
             widget.reference.createdAt,
-        width: widget.reference.width,
-        height: widget.reference.height,
+        width:
+            widget.reference.width,
+        height:
+            widget.reference.height,
         thickness:
             widget.reference.thickness,
-        unit: widget.reference.unit,
+        unit:
+            widget.reference.unit,
         sourceName:
             widget.reference.sourceName,
         sourceUrl:
             widget.reference.sourceUrl,
         outlineProfile:
-            extractedOutline
-                    ?.radialProfile ??
-                const [],
+            const [],
         outlineName:
             extractedOutline?.name ?? '',
       );
@@ -1110,11 +1072,9 @@ class _AiVisionPageState
 
       ScaffoldMessenger.of(context)
           .showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
-            comparison.hasReference
-                ? 'Core ตรวจวัตถุและเปรียบเทียบโครงร่างเสร็จแล้ว'
-                : 'Core ตรวจวัตถุและสกัดโครงร่างแล้ว แต่ยังไม่มีโครงร่างอ้างอิง',
+            'Core ตรวจวัตถุและสกัดเส้น contour จากภาพแล้ว',
           ),
         ),
       );
@@ -1201,7 +1161,7 @@ class _AiVisionPageState
   // =================================================
 
   String buildDetails() {
-    final output = [];
+    final output = <String>[];
 
     if (coreObservation.trim().isNotEmpty) {
       output.add(
@@ -1241,15 +1201,23 @@ class _AiVisionPageState
     final outline =
         outlineSymbol;
 
-    if (outline != null) {
+    if (outline != null &&
+        outline.contour.length >= 3) {
       output.add(
-        'Core สกัดโครงร่างภายนอก: '
-        '${outline.radialProfile.length} จุด',
+        'Core สกัดโครงร่างภายนอกแบบ contour: '
+        '${outline.contour.length} จุด',
       );
 
       output.add(
         'Core ชื่อโครงร่างที่ใช้วิเคราะห์: '
         '${outline.name}',
+      );
+
+      output.add(
+        'Core contour: '
+        '${const ShapeAnalyzer().contourToText(
+          outline.contour,
+        )}',
       );
     }
 
@@ -1333,12 +1301,21 @@ class _AiVisionPageState
             widget.reference.sourceName,
         sourceUrl:
             widget.reference.sourceUrl,
+
+        // -------------------------------------------------
+        // สำคัญ:
+        //
+        // ไม่ส่ง contour ปัจจุบันไปเขียนทับ
+        // ReferenceData.outlineProfile
+        //
+        // เพราะ contour ใหม่ต้องถูกจัดเก็บแยกเป็น
+        // Reference contour ในขั้น models/storage
+        // -------------------------------------------------
+
         outlineProfile:
-            outlineSymbol
-                    ?.radialProfile ??
-                const [],
+            const [],
         outlineName:
-            outlineSymbol?.name ?? '',
+            '',
       );
 
       widget.reference.frontDetails =
@@ -1368,13 +1345,11 @@ class _AiVisionPageState
       widget.reference.defectPoints =
           result.reference.defectPoints;
 
-      widget.reference.outlineProfile =
-          List<double>.from(
-        result.reference.outlineProfile,
-      );
-
-      widget.reference.outlineName =
-          result.reference.outlineName;
+      // -------------------------------------------------
+      // ไม่แตะ outlineProfile
+      //
+      // Reference เดิมต้องไม่ถูกสแกนปัจจุบันทับ
+      // -------------------------------------------------
 
       widget.reference.calculateRatio();
 
@@ -1763,8 +1738,8 @@ class _AiVisionPageState
                           const SizedBox(height: 6),
 
                           Text(
-                            'จุดโครงร่างที่สกัดได้: '
-                            '${outline.radialProfile.length} จุด',
+                            'จุดตามเส้นขอบที่สกัดได้: '
+                            '${outline.contour.length} จุด',
                           ),
 
                           const SizedBox(
@@ -1798,83 +1773,73 @@ class _AiVisionPageState
                             child:
                                 CustomPaint(
                               painter:
-                                  OutlineProfilePainter(
-                                profile:
-                                    outline
-                                        .radialProfile,
-                                referenceProfile:
-                                    widget
-                                            .reference
-                                            .outlineProfile
-                                            .isNotEmpty
-                                        ? widget
-                                            .reference
-                                            .outlineProfile
-                                        : null,
+                                  OutlineContourPainter(
+                                contour:
+                                    outline.contour,
+                                referenceContour:
+                                    null,
                               ),
                             ),
                           ),
 
                           const SizedBox(height: 10),
 
-                          if (widget
-                              .reference
-                              .outlineProfile
-                              .isNotEmpty)
-                            const Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment
-                                      .center,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons
-                                          .remove,
-                                      color:
-                                          Colors.blue,
-                                    ),
-                                    SizedBox(
-                                        width:
-                                            4),
-                                    Text(
-                                      'โครงร่างจากภาพ',
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(
-                                    width:
-                                        20),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons
-                                          .remove,
-                                      color:
-                                          Colors.orange,
-                                    ),
-                                    SizedBox(
-                                        width:
-                                            4),
-                                    Text(
-                                      'โครงร่างอ้างอิง',
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )
-                          else
-                            const Text(
-                              'สีน้ำเงิน = โครงร่างที่ Core สกัดจากภาพ\n'
-                              'ยังไม่มีโครงร่างอ้างอิงสำหรับซ้อนเปรียบเทียบ',
-                              textAlign:
-                                  TextAlign
-                                      .center,
-                              style:
-                                  TextStyle(
-                                fontSize: 13,
+                          const Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment
+                                    .center,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons
+                                        .remove,
+                                    color:
+                                        Colors.blue,
+                                  ),
+                                  SizedBox(
+                                      width:
+                                          4),
+                                  Text(
+                                    'Contour จากภาพ',
+                                  ),
+                                ],
                               ),
+                              SizedBox(
+                                  width:
+                                      20),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons
+                                        .remove,
+                                    color:
+                                        Colors.orange,
+                                  ),
+                                  SizedBox(
+                                      width:
+                                          4),
+                                  Text(
+                                    'Reference contour',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          const Text(
+                            'ขณะนี้แสดง contour จากภาพสแกนก่อน '
+                            'ส่วน Reference contour จะเชื่อมกับฐานข้อมูลในขั้นถัดไป',
+                            textAlign:
+                                TextAlign
+                                    .center,
+                            style:
+                                TextStyle(
+                              fontSize: 13,
                             ),
+                          ),
 
                           const SizedBox(height: 12),
 
@@ -1883,7 +1848,7 @@ class _AiVisionPageState
                                 EdgeInsets.zero,
                             title:
                                 const Text(
-                              'ดูค่าจุดโครงร่างที่ Core สกัด',
+                              'ดูข้อมูลจุดตามเส้นขอบ',
                               style:
                                   TextStyle(
                                 fontWeight:
@@ -1916,14 +1881,14 @@ class _AiVisionPageState
                                 ),
                                 child:
                                     Text(
-                                  outline
-                                      .radialProfile
+                                  outline.contour
                                       .asMap()
                                       .entries
                                       .map(
                                         (entry) =>
                                             '${entry.key + 1}: '
-                                            '${entry.value.toStringAsFixed(4)}',
+                                            'x=${entry.value.x.toStringAsFixed(5)}, '
+                                            'y=${entry.value.y.toStringAsFixed(5)}',
                                       )
                                       .join('\n'),
                                   style:
@@ -2018,9 +1983,9 @@ class _AiVisionPageState
                           const SizedBox(height: 8),
 
                           const Text(
-                            'โครงร่างนี้เป็นข้อมูลโครงสร้างภายนอก '
-                            'ยังไม่ใช่การตัดสินว่าแท้หรือปลอม '
-                            'และยังไม่ได้ใช้ยืนยันตัวตนของพระหรือเหรียญ',
+                            'Contour นี้เป็นข้อมูลโครงสร้างภายนอก '
+                            'ไม่ใช่การตัดสินว่าแท้หรือปลอม '
+                            'และไม่ได้ใช้ยืนยันตัวตนของพระหรือเหรียญ',
                             style:
                                 TextStyle(
                               fontSize: 13,
@@ -2030,9 +1995,9 @@ class _AiVisionPageState
                           const SizedBox(height: 8),
 
                           const Text(
-                            'การแสดงภาพด้านบนคือผลจากข้อมูล '
-                            'radial profile ที่ Core สกัดจากภาพจริง '
-                            'ใช้เพื่อตรวจว่า Core จับขอบวัตถุได้ถูกตำแหน่งหรือไม่',
+                            'การแสดงภาพนี้คือเส้นขอบที่ Core '
+                            'สกัดจากวัตถุจริงในภาพ '
+                            'ไม่ได้บังคับให้เหลือจำนวนจุด 72 จุด',
                             style:
                                 TextStyle(
                               fontSize: 13,
