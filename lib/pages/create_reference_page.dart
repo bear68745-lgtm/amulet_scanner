@@ -1,3 +1,4 @@
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
@@ -9,7 +10,7 @@ import '../../data/model_types.dart';
 
 import '../../common/path_bar.dart';
 import '../../common/app_helpers.dart'
-    show firstWhereOrNull, now, newId;
+    show firstWhereOrNull;
 
 import '../../drawings/coin_shape_outline.dart';
 import 'reference_edit_page.dart';
