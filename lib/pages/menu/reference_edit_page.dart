@@ -5,10 +5,12 @@ import '../../models.dart';
 import '../../scan_data.dart';
 import '../../storage.dart';
 
-import '../../common/app_helpers.dart';
+import '../../common/app_helpers.dart'
+    show firstWhereOrNull;
 import '../../common/path_bar.dart';
 
-import '../../scan_page.dart';
+import '../../scan_page.dart'
+    show ScanPage;
 
 // =====================================================
 // REFERENCE EDIT / VIEW
