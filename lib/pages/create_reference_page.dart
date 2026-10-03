@@ -2,15 +2,13 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../../models.dart';
-import '../../scan_data.dart';
 import '../../storage.dart';
 
 import '../../data/coin_shapes.dart';
 import '../../data/model_types.dart';
 
 import '../../common/path_bar.dart';
-import '../../common/app_helpers.dart'
-    show textDialog, confirmDelete;
+import '../../common/app_helpers.dart';
 
 import '../../drawings/coin_shape_outline.dart';
 import 'reference_edit_page.dart';
@@ -77,7 +75,9 @@ class _CreateReferencePageState
 
     if (saving) return;
 
-    setState(() => saving = true);
+    setState(() {
+      saving = true;
+    });
 
     try {
       final groups = await Storage.groups();
@@ -209,7 +209,9 @@ class _CreateReferencePageState
       }
     } finally {
       if (mounted) {
-        setState(() => saving = false);
+        setState(() {
+          saving = false;
+        });
       }
     }
   }
@@ -218,8 +220,11 @@ class _CreateReferencePageState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('สร้างข้อมูลอ้างอิง'),
+        title: const Text(
+          'สร้างข้อมูลอ้างอิง',
+        ),
       ),
+
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
@@ -349,7 +354,9 @@ class _CreateReferencePageState
                         strokeWidth: 2,
                       ),
                     )
-                  : const Icon(Icons.add),
+                  : const Icon(
+                      Icons.add,
+                    ),
               label: Text(
                 saving
                     ? 'กำลังสร้าง...'
