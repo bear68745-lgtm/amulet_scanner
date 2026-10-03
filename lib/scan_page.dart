@@ -7,25 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import '../core_pipeline.dart';
 import '../models.dart';
 import '../scan_data.dart';
+import '../common/app_helpers.dart' show firstWhereOrNull;
 import '../core/image_object_detector.dart';
 import '../core/shape_analyzer.dart';
-
-// =====================================================
-// HELPER
-// =====================================================
-
-T? firstWhereOrNull<T>(
-  Iterable<T> list,
-  bool Function(T) test,
-) {
-  for (final e in list) {
-    if (test(e)) {
-      return e;
-    }
-  }
-
-  return null;
-}
 
 // =====================================================
 // SCAN PAGE

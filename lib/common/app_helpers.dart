@@ -10,10 +10,6 @@ T? firstWhereOrNull<T>(
   return null;
 }
 
-String newId() => DateTime.now().microsecondsSinceEpoch.toString();
-
-String now() => DateTime.now().toIso8601String();
-
 Future<String?> textDialog(
   BuildContext context,
   String title,
