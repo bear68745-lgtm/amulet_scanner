@@ -8,7 +8,8 @@ import '../../data/coin_shapes.dart';
 import '../../data/model_types.dart';
 
 import '../../common/path_bar.dart';
-import '../../common/app_helpers.dart';
+import '../../common/app_helpers.dart'
+    show firstWhereOrNull, now, newId;
 
 import '../../drawings/coin_shape_outline.dart';
 import 'reference_edit_page.dart';
@@ -224,7 +225,6 @@ class _CreateReferencePageState
           'สร้างข้อมูลอ้างอิง',
         ),
       ),
-
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
