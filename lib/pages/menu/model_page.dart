@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import '../../models.dart';
 import '../../storage.dart';
 
-import '../../common/app_helpers.dart';
+import '../../common/app_helpers.dart'
+    show textDialog, confirmDelete;
 import '../../common/path_bar.dart';
 
 import 'type_page.dart';
