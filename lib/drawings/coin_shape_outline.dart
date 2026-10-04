@@ -15,13 +15,20 @@ import 'package:flutter/material.dart';
 /// โครงร่างใช้สำหรับอธิบายลักษณะภายนอกของเหรียญเท่านั้น
 /// ===============================================================
 
+/// ===============================================================
+/// รูปไข่ทั่วไป + ห่วง
+///
+/// ใช้เป็นสัญลักษณ์ประเภท "รูปไข่"
+/// ไม่ใช่โครงร่างเฉพาะของรุ่นใด
+/// ===============================================================
+
 class OvalOutline extends StatelessWidget {
   const OvalOutline({super.key});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 280,
+      height: 300,
       width: double.infinity,
       child: CustomPaint(
         painter: OvalOutlinePainter(),
@@ -29,13 +36,6 @@ class OvalOutline extends StatelessWidget {
     );
   }
 }
-
-/// ===============================================================
-/// รูปไข่ทั่วไป
-///
-/// ใช้เป็นสัญลักษณ์ประเภท "รูปไข่"
-/// ไม่ใช่โครงร่างเฉพาะของรุ่นใด
-/// ===============================================================
 
 class OvalOutlinePainter extends CustomPainter {
   @override
@@ -49,13 +49,75 @@ class OvalOutlinePainter extends CustomPainter {
 
     final centerX = size.width / 2;
 
+    // =============================================================
+    // ห่วงด้านบน
+    // =============================================================
+
+    final earPath = Path();
+
+    earPath.moveTo(
+      centerX - 12,
+      31,
+    );
+
+    earPath.cubicTo(
+      centerX - 12,
+      18,
+      centerX - 7,
+      9,
+      centerX,
+      9,
+    );
+
+    earPath.cubicTo(
+      centerX + 7,
+      9,
+      centerX + 12,
+      18,
+      centerX + 12,
+      31,
+    );
+
+    canvas.drawPath(
+      earPath,
+      paint,
+    );
+
+    // =============================================================
+    // รูห่วง
+    // =============================================================
+
+    final holePaint = Paint()
+      ..color = Colors.brown
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(
+          centerX,
+          20,
+        ),
+        width: 10,
+        height: 12,
+      ),
+      holePaint,
+    );
+
+    // =============================================================
+    // ตัวเหรียญรูปไข่
+    // =============================================================
+
     final path = Path();
 
-    path.moveTo(centerX, 25);
+    path.moveTo(
+      centerX,
+      30,
+    );
 
     path.cubicTo(
       centerX - 30,
-      25,
+      30,
       centerX - 58,
       45,
       centerX - 69,
@@ -102,18 +164,23 @@ class OvalOutlinePainter extends CustomPainter {
       centerX + 58,
       45,
       centerX + 30,
-      25,
+      30,
       centerX,
-      25,
+      30,
     );
 
     path.close();
 
-    canvas.drawPath(path, paint);
+    canvas.drawPath(
+      path,
+      paint,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+  bool shouldRepaint(
+    covariant CustomPainter oldDelegate,
+  ) {
     return false;
   }
 }
@@ -165,7 +232,10 @@ class IntegratedEarOvalOutlinePainter extends CustomPainter {
     // จุดเริ่มต้นบริเวณยอดหู
     // =============================================================
 
-    path.moveTo(centerX, 18);
+    path.moveTo(
+      centerX,
+      18,
+    );
 
     // =============================================================
     // ด้านซ้ายของหู
@@ -327,7 +397,10 @@ class IntegratedEarOvalOutlinePainter extends CustomPainter {
 
     path.close();
 
-    canvas.drawPath(path, paint);
+    canvas.drawPath(
+      path,
+      paint,
+    );
 
     // =============================================================
     // รูหู
