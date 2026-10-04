@@ -2119,8 +2119,7 @@ class _AiVisionPageState
                           .withValues(
                         alpha: 0.10,
                       ),
-                      borderRadius:
-                          BorderRadius.circular(
+                      borderRadius: BorderRadius.circular(
                         6,
                       ),
                     ),
