@@ -6,6 +6,7 @@ import '../../models.dart';
 import '../../storage.dart';
 
 import '../../data/coin_shapes.dart';
+import '../../data/cast_coin_shapes.dart';
 import '../../data/model_types.dart';
 
 import '../../common/path_bar.dart';
@@ -13,6 +14,7 @@ import '../../common/app_helpers.dart'
 show firstWhereOrNull;
 
 import '../../drawings/coin_shape_outline.dart';
+import '../../drawings/cast_coin_shape_outline.dart';
 import 'reference_edit_page.dart';
 
 // =====================================================
@@ -41,6 +43,7 @@ final printController = TextEditingController();
 
 String? selectedModelName;
 String? selectedCoinShape;
+String? selectedCastCoinShape;
 
 bool saving = false;
 
@@ -61,10 +64,12 @@ final temple = templeController.text.trim();
 final modelName = selectedModelName?.trim() ?? '';
 final typeName = typeController.text.trim();
 
-final printName =  
-    selectedModelName == 'เหรียญ'  
-        ? (selectedCoinShape?.trim() ?? '')  
-        : printController.text.trim();  
+final printName =
+    selectedModelName == 'เหรียญ'
+        ? (selectedCoinShape?.trim() ?? '')
+        : selectedModelName == 'เหรียญหล่อ'
+            ? (selectedCastCoinShape?.trim() ?? '')
+            : printController.text.trim();
 
 if ([groupName, modelName, typeName, printName]  
     .any((e) => e.isEmpty)) {  
@@ -148,10 +153,12 @@ try {
       name: printName,  
       createdAt: d,  
       updatedAt: d,  
-      coinShape:  
-          selectedModelName == 'เหรียญ'  
-              ? (selectedCoinShape?.trim() ?? '')  
-              : '',  
+      coinShape:
+          selectedModelName == 'เหรียญ'
+              ? (selectedCoinShape?.trim() ?? '')
+              : selectedModelName == 'เหรียญหล่อ'
+                  ? (selectedCastCoinShape?.trim() ?? '')
+                  : '',
       earType:  
           selectedModelName == 'เหรียญ' &&  
                   selectedCoinShape == 'รูปไข่'  
@@ -276,7 +283,8 @@ const SizedBox(height: 12),
             : (value) {  
                 setState(() {  
                   selectedModelName = value;  
-                  selectedCoinShape = null;  
+                  selectedCoinShape = null;
+                  selectedCastCoinShape = null;  
                 });  
               },  
       ),  
@@ -294,54 +302,97 @@ const SizedBox(height: 12),
 
       const SizedBox(height: 12),  
 
-      if (selectedModelName == 'เหรียญ') ...[  
-        DropdownButtonFormField<String>(  
-          value: selectedCoinShape,  
-          decoration: const InputDecoration(  
-            labelText: 'รูปทรงเหรียญ',  
-            border: OutlineInputBorder(),  
-          ),  
-          items: coinShapeNames.map(  
-            (name) {  
-              return DropdownMenuItem<String>(  
-                value: name,  
-                child: Text(name),  
-              );  
-            },  
-          ).toList(),  
-          onChanged: saving  
-              ? null  
-              : (value) {  
-                  setState(() {  
-                    selectedCoinShape = value;  
-                  });  
-                },  
-        ),  
+      if (selectedModelName == 'เหรียญ') ...[
+        DropdownButtonFormField<String>(
+          value: selectedCoinShape,
+          decoration: const InputDecoration(
+            labelText: 'รูปทรงเหรียญ',
+            border: OutlineInputBorder(),
+          ),
+          items: coinShapeNames.map(
+            (name) {
+              return DropdownMenuItem<String>(
+                value: name,
+                child: Text(name),
+              );
+            },
+          ).toList(),
+          onChanged: saving
+              ? null
+              : (value) {
+                  setState(() {
+                    selectedCoinShape = value;
+                  });
+                },
+        ),
 
-        if (selectedCoinShape == 'รูปไข่') ...[  
-          const SizedBox(height: 12),  
+        if (selectedCoinShape != null) ...[
+          const SizedBox(height: 12),
 
-          const Text(  
-            'โครงร่างเหรียญ',  
-            style: TextStyle(  
-              fontSize: 16,  
-              fontWeight: FontWeight.bold,  
-            ),  
-          ),  
+          const Text(
+            'โครงร่างเหรียญ',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
 
-          const SizedBox(height: 8),  
+          const SizedBox(height: 8),
 
-          const IntegratedEarOvalOutline(),  
-        ],  
-      ] else  
-        TextField(  
-          controller: printController,  
-          decoration: const InputDecoration(  
-            labelText: 'รูปทรง',  
-            hintText: 'เช่น รูปไข่, ทรงเสมา',  
-            border: OutlineInputBorder(),  
-          ),  
-        ),  
+          CoinShapeOutline(
+            shapeName: selectedCoinShape!,
+          ),
+        ],
+      ] else if (selectedModelName == 'เหรียญหล่อ') ...[
+        DropdownButtonFormField<String>(
+          value: selectedCastCoinShape,
+          decoration: const InputDecoration(
+            labelText: 'รูปทรงเหรียญหล่อ',
+            border: OutlineInputBorder(),
+          ),
+          items: castCoinShapeNames.map(
+            (name) {
+              return DropdownMenuItem<String>(
+                value: name,
+                child: Text(name),
+              );
+            },
+          ).toList(),
+          onChanged: saving
+              ? null
+              : (value) {
+                  setState(() {
+                    selectedCastCoinShape = value;
+                  });
+                },
+        ),
+
+        if (selectedCastCoinShape != null) ...[
+          const SizedBox(height: 12),
+
+          const Text(
+            'โครงร่างเหรียญหล่อ',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          CastCoinShapeOutline(
+            shapeName: selectedCastCoinShape!,
+          ),
+        ],
+      ] else
+        TextField(
+          controller: printController,
+          decoration: const InputDecoration(
+            labelText: 'รูปทรง',
+            hintText: 'เช่น รูปไข่, ทรงเสมา',
+            border: OutlineInputBorder(),
+          ),
+        ),
 
       const SizedBox(height: 20),  
 
