@@ -1,5 +1,5 @@
-name: amulet_scanner
-description: แอปกล้องแสกนพระและเหรียญ ไม่บันทึกรูปภาพ
+name: ส่องพระ
+description: แอปตรวจสอบพระ ไม่บันทึกรูปภาพ
 publish_to: "none"
 
 version: 1.0.0+1
